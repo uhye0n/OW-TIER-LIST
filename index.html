@@ -190,7 +190,7 @@ table.heat{border-collapse:separate;border-spacing:2px;font-size:12.5px}
 .method .muted{color:var(--muted)}
 .formula{background:var(--panel-2);border-left:3px solid var(--ink);padding:10px 14px;margin:6px 0 10px;font-size:13.5px;line-height:1.75}
 .foot{margin-top:18px;font-size:12.5px;color:var(--muted)}
-.m-lead{margin:10px 0 16px;font-size:15px;font-weight:600;max-width:80ch}
+.m-lead{margin:10px 0 16px;font-size:15px;font-weight:600}
 .m-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 @media (max-width: 900px){ .m-grid{grid-template-columns:minmax(0,1fr)} }
 #method .foot{margin-top:14px}
@@ -280,7 +280,14 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
 body[data-view="home"] #seg,body[data-view="home"] #segB,body[data-view="home"] .row2{display:none}
 body:not([data-view="home"]) #homeView,body:not([data-view="detail"]) #detailView,body:not([data-view="method"]) #methodView{display:none}
 body[data-view="method"] #seg,body[data-view="method"] .row2{display:none}
-#method .fresh{margin:6px 0 4px}
+.fresh-box{margin:8px 0 6px;overflow-x:auto}
+.fresh-table{border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.fresh-table caption{text-align:left;font-size:12.5px;color:var(--muted);padding-bottom:4px}
+.fresh-table th,.fresh-table td{padding:3px 16px 3px 0;text-align:left;white-space:nowrap;font-weight:500}
+.fresh-table th{font-weight:700;display:flex;align-items:center;gap:8px}
+.fresh-table .live{flex:none;width:8px;height:8px;border-radius:50%;background:var(--live);box-shadow:0 0 0 3px color-mix(in srgb, var(--live) 22%, transparent)}
+.fresh-table .ago{color:var(--muted)}
+@media (max-width: 560px){ .fresh-table td:nth-child(2){display:none} .fresh-table th,.fresh-table td{padding-right:12px} }
 .crumb{display:flex;align-items:center;gap:12px;margin-top:18px;font-size:13.5px;color:var(--muted)}
 .crumb .back{border:1px solid var(--line);background:var(--panel);padding:7px 13px;font-weight:700;font-size:14px;cursor:pointer;color:var(--ink)}
 .crumb .back:hover{background:var(--hl)}
@@ -488,7 +495,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   <div class="crumb"><button type="button" class="back" data-view="home">← 한눈에 보기</button><span>계산 방식</span></div>
   <section class="panel method" id="method">
     <h3>계산 방식</h3>
-    <p class="fresh"><span class="live" aria-hidden="true"></span><span id="freshText"></span></p>
+    <div class="fresh-box" id="freshText"></div>
     <p class="m-lead">픽률·승률·밴률을 역할별로 표준화해 하나의 메타 지수(평균 50)로 합치고, 지수 구간으로 S~D 티어를 나눕니다.</p>
     <div class="m-grid">
       <div class="m-card">
@@ -1146,14 +1153,14 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   }
 
   function renderFresh(){
-    const el = $('freshText');
-    const iso = D.meta && D.meta.collectedAt;
-    const t = iso ? new Date(iso) : null;
-    if (!t || isNaN(t)) { el.textContent = '6시간마다 공식 통계를 확인해 자동으로 갱신합니다.'; return; }
-    const f = new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', year:'numeric', month:'long', day:'numeric', hour:'numeric', minute:'2-digit'});
-    const hrs = (Date.now() - t.getTime()) / 36e5;
-    const ago = hrs < 1 ? '1시간 이내' : hrs < 48 ? `${Math.floor(hrs)}시간 전` : `${Math.floor(hrs / 24)}일 전`;
-    el.textContent = `${D.meta.label} 데이터(${srcName()} 영웅 통계) ${f.format(t)} 반영 (${ago}). 6시간마다 자동으로 확인합니다.`;
+    const f = new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', month:'long', day:'numeric', hour:'numeric', minute:'2-digit'});
+    const ago = t => { const hrs = (Date.now() - t.getTime()) / 36e5; return hrs < 1 ? '1시간 이내' : hrs < 48 ? `${Math.floor(hrs)}시간 전` : `${Math.floor(hrs / 24)}일 전`; };
+    const rows = INDEX.servers.map(sv => {
+      const t = sv.collectedAt ? new Date(sv.collectedAt) : null;
+      const ok = t && !isNaN(t);
+      return `<tr${sv.id === state.server ? ' class="cur"' : ''}><th scope="row"><span class="live" aria-hidden="true"></span>${esc(sv.label)}</th><td>${SOURCE_NAME[sv.source] || '공식'} 영웅 통계</td><td>${ok ? f.format(t) : '—'}</td><td class="ago">${ok ? ago(t) : ''}</td></tr>`;
+    }).join('');
+    $('freshText').innerHTML = `<table class="fresh-table"><caption>데이터 반영 시각 · 6시간마다 자동으로 확인합니다</caption><tbody>${rows}</tbody></table>`;
   }
 
   function renderAll(){
