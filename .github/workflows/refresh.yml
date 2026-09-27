@@ -1,4 +1,4 @@
-name: 넥슨 통계 갱신
+name: 공식 통계 갱신
 
 on:
   schedule:
@@ -15,7 +15,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -23,17 +23,23 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: 넥슨 통계 수집과 계산
-        run: python refresh.py --page index.html --out index.html
+      - name: 넥슨·블리자드 통계 수집과 계산
+        run: python refresh.py
 
       - name: 바뀐 내용 커밋
         run: |
-          if git diff --quiet; then
-            echo "넥슨 수치 변동 없음"
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html
-          git commit -m "넥슨 통계 갱신 $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M')"
-          git push
+          git add data history
+          if ! git diff --cached --quiet; then
+            git commit -m "공식 통계 갱신 $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M')"
+            git push
+            exit 0
+          fi
+          echo "통계 변동 없음"
+          # GitHub는 60일 동안 저장소 활동이 없으면 예약 실행을 멈추므로, 45일간 커밋이 없으면 빈 커밋을 남긴다
+          last=$(git log -1 --format=%ct)
+          if [ $(( $(date +%s) - last )) -gt $(( 45 * 86400 )) ]; then
+            git commit --allow-empty -m "예약 실행 유지용 커밋"
+            git push
+          fi
