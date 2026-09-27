@@ -77,9 +77,19 @@ button,select,input{font:inherit;color:inherit}
 .weights summary::-webkit-details-marker{display:none}
 .weights summary .wl{color:var(--muted);font-weight:500;margin-left:6px;font-variant-numeric:tabular-nums}
 .wbody{position:absolute;right:0;top:calc(100% + 6px);z-index:20;width:280px;background:var(--panel);border:1px solid var(--line);padding:14px 16px;box-shadow:0 10px 30px rgba(10,15,25,.18)}
-.wbody label{display:grid;grid-template-columns:44px 1fr 38px;align-items:center;gap:8px;font-size:13.5px;font-weight:600;margin-bottom:8px}
-.wbody input[type=range]{width:100%;accent-color:var(--accent)}
-.wbody output{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-weight:500}
+.wsplit{position:relative;height:34px;margin:4px 0 6px;--c-wr:#2449C8;--c-pr:#1E9E62;--c-br:#E0782A}
+.wtrack{position:absolute;left:0;right:0;top:12px;height:10px;border-radius:5px}
+.wsplit input[type=range]{position:absolute;left:0;top:0;width:100%;height:34px;margin:0;background:none;pointer-events:none;-webkit-appearance:none;appearance:none}
+.wsplit input[type=range]::-webkit-slider-runnable-track{background:none;height:34px}
+.wsplit input[type=range]::-moz-range-track{background:none}
+.wsplit input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:20px;height:28px;margin-top:3px;border-radius:4px;background:var(--panel);border:2px solid var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.25);cursor:ew-resize}
+.wsplit input[type=range]::-moz-range-thumb{pointer-events:auto;width:16px;height:24px;border-radius:4px;background:var(--panel);border:2px solid var(--ink);cursor:ew-resize}
+.wsplit input[type=range]:focus-visible{outline:none}
+.wsplit input[type=range]:focus-visible::-webkit-slider-thumb{border-color:var(--accent);box-shadow:0 0 0 3px var(--hl)}
+.wvals{display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:600;margin-bottom:10px}
+.wvals b{font-variant-numeric:tabular-nums}
+.wvals span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:0}
+.wvals .c-wr::before{background:#2449C8}.wvals .c-pr::before{background:#1E9E62}.wvals .c-br::before{background:#E0782A}
 .wbody p{margin:4px 0 10px;font-size:12.5px;color:var(--muted)}
 .wbody button{border:1px solid var(--line);background:var(--panel-2);padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer}
 
@@ -239,7 +249,8 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
   .top{gap:12px;padding-bottom:14px}
   .scope{font-size:13px;margin-top:6px}
   .fresh{font-size:12.5px;margin-top:6px}
-  .row2{flex-wrap:nowrap;width:100%}
+  .row2{flex-wrap:wrap;width:100%}
+  .weights[open]{flex-basis:100%}
   .row2 .toggle{flex:none}
   .weights{flex:1;min-width:0}
   .weights summary{overflow:hidden;text-overflow:ellipsis}
@@ -250,11 +261,12 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
 }
 
 /* view tabs */
-.viewtabs{display:flex;gap:4px;margin-top:18px;border-bottom:1px solid var(--line)}
-.viewtabs button{border:0;background:transparent;padding:10px 16px 11px;font-size:15px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px}
-.viewtabs button:hover{color:var(--ink)}
-.viewtabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
-body[data-view="home"] #seg,body[data-view="home"] #detailView,body[data-view="home"] #method,body[data-view="home"] .row2{display:none}
+body[data-view="home"] #seg,body[data-view="home"] #segB,body[data-view="home"] #detailView,body[data-view="home"] #method,body[data-view="home"] .row2{display:none}
+.crumb{display:flex;align-items:center;gap:12px;margin-top:18px;font-size:13.5px;color:var(--muted)}
+.crumb .back{border:1px solid var(--line);background:var(--panel);padding:7px 13px;font-weight:700;font-size:14px;cursor:pointer;color:var(--ink)}
+.crumb .back:hover{background:var(--hl)}
+.crumb span{font-weight:600}
+.crumb + .layout{margin-top:14px}
 body[data-view="detail"] #homeView{display:none}
 .seg-b button .rk.mini img{width:17px;height:17px}
 
@@ -313,7 +325,6 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   .rt-cell:nth-child(2){border-top:0}
   .rt-cell::before{content:attr(data-label);flex:0 0 100%;font-size:11px;font-weight:700;color:var(--muted)}
   .rt-cell .chip{font-size:13px;padding:5px 11px 5px 9px}
-  .viewtabs button{flex:1;padding:10px 8px 11px}
   .seg-b{grid-template-columns:repeat(4,1fr)!important}
   .seg-b button .rk.mini img{width:13px;height:13px}
 }
@@ -337,24 +348,23 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         <details class="weights" id="weights">
           <summary><span class="wt">지수 가중치</span><span class="wl" id="wlabel"></span></summary>
           <div class="wbody">
-            <p>세 값의 비율만 반영됩니다.</p>
-            <label>승률<input type="range" min="0" max="100" step="5" id="w-wr"><output id="o-wr"></output></label>
-            <label>픽률<input type="range" min="0" max="100" step="5" id="w-pr"><output id="o-pr"></output></label>
-            <label>밴률<input type="range" min="0" max="100" step="5" id="w-br"><output id="o-br"></output></label>
-            <button type="button" id="wreset">기본값으로 되돌리기</button>
+            <p>손잡이 두 개로 100을 승률·픽률·밴률에 나눠 줍니다.</p>
+            <div class="wsplit" id="wsplit">
+              <div class="wtrack" id="wtrack" aria-hidden="true"></div>
+              <input type="range" min="0" max="100" step="5" id="w-a" aria-label="승률과 픽률의 경계">
+              <input type="range" min="0" max="100" step="5" id="w-b" aria-label="픽률과 밴률의 경계">
+            </div>
+            <div class="wvals"><span class="c-wr">승률 <b id="o-wr"></b></span><span class="c-pr">픽률 <b id="o-pr"></b></span><span class="c-br">밴률 <b id="o-br"></b></span></div>
+            <button type="button" id="wreset">기본값(50 / 30 / 20)으로 되돌리기</button>
           </div>
         </details>
       </div>
     </div>
   </header>
 
-  <nav class="viewtabs" role="tablist" aria-label="화면">
-    <button type="button" role="tab" data-view="home" aria-selected="true">한눈에 보기</button>
-    <button type="button" role="tab" data-view="detail" aria-selected="false">맵·영웅 상세</button>
-  </nav>
 
   <section id="homeView">
-    <div class="home-head"><h2>전체 맵 종합</h2><span class="sample" id="homeSample"></span></div>
+    <div class="home-head"><h2>한눈에 보기</h2><span class="sample" id="homeSample"></span></div>
     <p class="home-sub" id="homeBoardSub"></p>
     <p class="patch-note" id="homePatch" hidden></p>
     <p class="custom-note" id="homeCustom" hidden></p>
@@ -366,6 +376,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   </section>
 
   <div id="detailView">
+  <div class="crumb"><button type="button" class="back" data-view="home">← 한눈에 보기</button><span>맵·영웅 상세</span></div>
   <div class="layout">
     <nav class="rail" aria-label="맵 선택" id="rail"></nav>
     <main>
@@ -469,7 +480,13 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   const saved = store.get('state');
   if (saved) {
     for (const k of ['server','role','map']) if (typeof saved[k] === 'string') state[k] = saved[k];
-    if (saved.w && ['wr','pr','br'].every(k => typeof saved.w[k] === 'number')) state.w = saved.w;
+    if (saved.w && ['wr','pr','br'].every(k => typeof saved.w[k] === 'number')) {
+      const t = saved.w.wr + saved.w.pr + saved.w.br;
+      if (t > 0) {
+        const a = Math.round(saved.w.wr / t * 20) * 5, b = Math.min(100, a + Math.round(saved.w.pr / t * 20) * 5);
+        state.w = {wr:a, pr:b - a, br:100 - b};
+      }
+    }
     if (typeof saved.smooth === 'boolean') state.smooth = saved.smooth;
   }
 
@@ -480,7 +497,8 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   const fmtInt = n => Math.round(n).toLocaleString('ko-KR');
   const relOf = n => n >= 600 ? ['r-hi','높음'] : n >= 150 ? ['r-mid','보통'] : ['r-lo','낮음'];
   const roleIdx = () => H.map((h, i) => i).filter(i => H[i].role === state.role);
-  const BK = () => BRS.find(x => x.id === state.bracket) || BRS[0];
+  const curB = () => (state.view === 'home' && BRS.some(x => x.id === 'all')) ? 'all' : state.bracket;
+  const BK = () => BRS.find(x => x.id === curB()) || BRS[0];
   const srcName = () => SOURCE_NAME[(INDEX && (INDEX.servers.find(s => s.id === state.server) || {}).source)] || '공식';
   const portrait = (i, cls) => H[i].img ? `<img class="${cls}" src="${esc(H[i].img)}" alt="" width="28" height="28" loading="lazy" decoding="async" onerror="this.remove()">` : '';
 
@@ -552,9 +570,9 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     MI0 = miFor(DEFAULT_W, true);   // basis for change markers, same as the stored snapshots
     PREV = null;
     const cmp = D.compare;
-    if (cmp && cmp.mi && cmp.mi[state.bracket]) {
+    if (cmp && cmp.mi && cmp.mi[curB()]) {
       const pos = Object.fromEntries((cmp.heroes || []).map((id, k) => [id, k]));
-      const src = cmp.mi[state.bracket];
+      const src = cmp.mi[curB()];
       PREV = {label: cmp.patch ? '지난 패치' : '지난 갱신', at: cmp.at, get(m, i){ const arr = src[m]; const k = pos[H[i].id]; return arr && k != null && arr[k] != null ? arr[k] : null; }};
     }
   }
@@ -574,14 +592,13 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     const brs = BRS.slice().sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
     $('segB').innerHTML = brs.map(x =>
       `<button type="button" data-bracket="${x.id}" aria-pressed="${state.bracket === x.id}" title="${esc(x.label)}: ${esc(x.ranks)}"><span class="bl">${esc(x.label)}</span><span class="rk${x.id === 'all' ? ' mini' : ''}">${(RANK_ICONS[x.id] || []).map(([f, n]) => `<img src="assets/ranks/${f}.png" alt="${n}" width="26" height="26" loading="lazy">`).join('')}</span></button>`).join('');
-    for (const b of document.querySelectorAll('.viewtabs [data-view]')) b.setAttribute('aria-selected', String(b.dataset.view === state.view));
     document.body.dataset.view = state.view;
     $('seg').innerHTML = ROLES.map(([k, label]) =>
       `<button type="button" data-role="${k}" aria-pressed="${state.role === k}">${label}</button>`).join('');
     $('smooth').checked = state.smooth;
     const w = weights(state.w);
     $('wlabel').innerHTML = `<span class="wn">승률 </span>${Math.round(w[0]*100)} / <span class="wn">픽률 </span>${Math.round(w[1]*100)} / <span class="wn">밴률 </span>${Math.round(w[2]*100)}`;
-    for (const k of ['wr','pr','br']) { $('w-' + k).value = state.w[k]; $('o-' + k).textContent = state.w[k]; }
+    syncWeights();
   }
 
   function renderRail(){
@@ -614,7 +631,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       const days = Math.floor((Date.now() - new Date(meta.patchStart).getTime()) / 864e5) + 1;
       if (days >= 1 && days <= 60) parts.push(`통계가 초기화된 뒤 ${days}일차 데이터입니다.`);
     }
-    const ratio = meta.sampleRatio && meta.sampleRatio[state.bracket];
+    const ratio = meta.sampleRatio && meta.sampleRatio[curB()];
     if (ratio != null && ratio < 0.5) parts.push(`이 구간의 경기 수가 아직 지난 패치의 ${Math.round(ratio * 100)}% 수준이라 티어가 크게 바뀔 수 있습니다.`);
     for (const e of [el, $('homePatch')]) { e.hidden = !parts.length; e.textContent = parts.join(' '); }
   }
@@ -688,7 +705,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       }
     }
     $('mgrid').innerHTML = html;
-    $('homeSample').textContent = `${D.meta.label} ${B.label}(${B.ranks}), 추정 ${fmtInt(B.N['all-maps'])}경기`;
+    $('homeSample').textContent = `${D.meta.label} · 전체 티어(${B.ranks}) · ${MAP_IDS.length}개 맵 종합 · 추정 ${fmtInt(B.N['all-maps'])}경기`;
     $('homeSub').innerHTML = `맵마다 역할별 지수 상위 돌격 1·공격 2·지원 2명입니다. <span class="star" aria-hidden="true">★</span> 전체 맵 조합에 없던 영웅.`;
     const custom = !state.smooth || ['wr','pr','br'].some(k => state.w[k] !== DEFAULT_W[k]);
     const cn = $('homeCustom');
@@ -942,9 +959,11 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     const goEl = t.closest('[data-go]');
     if (goEl) {
       state.map = goEl.dataset.go; state.focus = null;
+      if (BRS.some(x => x.id === 'all')) state.bracket = 'all';
       if (goEl.dataset.goRole) { state.role = goEl.dataset.goRole; state.focus = +goEl.dataset.goHero; }
       setView('detail'); return;
     }
+    if (t.closest('.crumb .back') && history.state && history.state.view === 'detail' && history.length > 1) { history.back(); return; }
     const viewEl = t.closest('[data-view]');
     if (viewEl && viewEl.tagName === 'BUTTON') { setView(viewEl.dataset.view, {anchor: viewEl.dataset.anchor}); return; }
     const svEl = t.closest('[data-server]');
@@ -968,12 +987,24 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   $('mapSelect').addEventListener('change', e => { state.map = e.target.value; renderAll(); });
   $('smooth').addEventListener('change', e => { state.smooth = e.target.checked; renderAll(); });
   let raf = 0;
-  for (const k of ['wr','pr','br']) {
-    $('w-' + k).addEventListener('input', e => {
-      state.w[k] = +e.target.value; $('o-' + k).textContent = state.w[k];
-      cancelAnimationFrame(raf); raf = requestAnimationFrame(renderAll);
-    });
+  // two handles on one 0-100 track: [0, a] win rate, [a, b] pick rate, [b, 100] ban rate; handles push each other
+  function syncWeights(){
+    const a = state.w.wr, b = state.w.wr + state.w.pr;
+    $('w-a').value = a; $('w-b').value = b;
+    $('o-wr').textContent = state.w.wr; $('o-pr').textContent = state.w.pr; $('o-br').textContent = state.w.br;
+    $('w-a').setAttribute('aria-valuetext', `승률 ${state.w.wr}, 픽률 ${state.w.pr}`);
+    $('w-b').setAttribute('aria-valuetext', `픽률 ${state.w.pr}, 밴률 ${state.w.br}`);
+    $('wtrack').style.background = `linear-gradient(90deg, var(--c-wr) 0 ${a}%, var(--c-pr) ${a}% ${b}%, var(--c-br) ${b}% 100%)`;
   }
+  function onSplit(which){
+    let a = +$('w-a').value, b = +$('w-b').value;
+    if (a > b) { if (which === 'a') b = a; else a = b; }
+    state.w = {wr:a, pr:b - a, br:100 - b};
+    syncWeights();
+    cancelAnimationFrame(raf); raf = requestAnimationFrame(renderAll);
+  }
+  $('w-a').addEventListener('input', () => onSplit('a'));
+  $('w-b').addEventListener('input', () => onSplit('b'));
   $('wreset').addEventListener('click', () => { state.w = Object.assign({}, DEFAULT_W); renderAll(); });
   document.addEventListener('click', e => { if (e.target.id === 'homeReset') { state.w = Object.assign({}, DEFAULT_W); state.smooth = true; renderAll(); } });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { const d = $('weights'); if (d.open) d.open = false; } });
