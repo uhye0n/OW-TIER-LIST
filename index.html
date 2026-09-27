@@ -113,7 +113,11 @@ button,select,input{font:inherit;color:inherit}
 .legend{font-size:12px;color:var(--muted);margin-top:16px;padding:0 8px;display:grid;gap:4px}
 .legend span{display:inline-flex;align-items:center;gap:7px}
 .mapselect{display:none}
-.map-search{position:relative;margin-bottom:16px;max-width:420px}
+.map-search{position:relative}
+.rail .map-search{position:sticky;top:0;z-index:2;background:var(--bg);padding-bottom:10px}
+.rail .map-results{display:none}
+.rail-none{margin:4px 8px;font-size:13px;color:var(--muted)}
+.rail .map-btn.kb{outline:2px solid var(--accent);outline-offset:-2px}
 .map-search input{width:100%;height:40px;padding:0 12px 0 36px;border:1px solid var(--line);background:var(--panel) no-repeat 11px 50%/16px 16px;font-size:14.5px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238993A2' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E")}
 .map-search input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
 .map-results{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;background:var(--panel);border:1px solid var(--line);box-shadow:0 10px 30px rgba(10,15,25,.18);max-height:340px;overflow:auto}
@@ -222,7 +226,11 @@ table.heat{border-collapse:separate;border-spacing:2px;font-size:12.5px}
 
 @media (max-width: 900px){
   .layout{grid-template-columns:minmax(0,1fr);gap:14px}
-  .rail{display:none}
+  .rail{position:static;max-height:none;overflow:visible;padding-right:0}
+  .rail #rail,.rail .rail-none{display:none}
+  .rail .map-search{position:relative;padding-bottom:0}
+  .rail .map-results{display:block}
+  .rail .map-results[hidden]{display:none}
   .mapselect{display:block;width:100%;padding:10px 12px;border:1px solid var(--line);background:var(--panel);font-size:15px;font-weight:600;margin-bottom:14px}
   .controls{align-items:flex-start;width:100%}
   .row2{justify-content:flex-start}
@@ -491,13 +499,16 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       </div></div>
   </div>
   <div class="layout">
-    <nav class="rail" aria-label="맵 선택" id="rail"></nav>
-    <main>
+    <aside class="rail" id="railWrap">
       <div class="map-search" id="mapSearchBox">
-        <input type="search" id="mapSearch" placeholder="맵 검색 (예: 부산, 리장, ㅇㄹㅇㅅ)" autocomplete="off" spellcheck="false"
-          role="combobox" aria-expanded="false" aria-controls="mapResults" aria-autocomplete="list" aria-label="맵 검색">
+        <input type="search" id="mapSearch" placeholder="맵 검색 (이름·초성)" autocomplete="off" spellcheck="false"
+          role="combobox" aria-expanded="false" aria-controls="rail" aria-autocomplete="list" aria-label="맵 검색 (예: 부산, 리장, ㅇㄹㅇㅅ)">
         <div class="map-results" id="mapResults" role="listbox" hidden></div>
       </div>
+      <p class="rail-none" id="railNone" hidden>일치하는 맵이 없습니다.</p>
+      <nav aria-label="맵 선택" id="rail"></nav>
+    </aside>
+    <main>
       <select class="mapselect" id="mapSelect" aria-label="맵 선택"></select>
       <section class="board-panel" id="boardPanel">
         <div class="map-head">
@@ -797,31 +808,47 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     }
     return scored.sort((a, b) => b[0] - a[0]).map(x => x[1]);
   }
+  // wide screens: the search box sits on top of the sidebar and filters it in place (arrow keys walk the visible items);
+  // narrow screens hide the sidebar list, so the same box shows a dropdown with thumbnails instead
+  const NARROW = window.matchMedia('(max-width: 900px)');
   function renderSearch(){
     const q = $('mapSearch').value;
     const box = $('mapResults');
-    searchHits = mapMatches(q).slice(0, 8);
-    if (searchSel >= searchHits.length) searchSel = 0;
     const open = norm(q).length > 0;
-    box.hidden = !open;
-    $('mapSearch').setAttribute('aria-expanded', String(open));
-    if (!open) { filterRail(''); return; }
-    box.innerHTML = searchHits.length ? searchHits.map((m, k) =>
-      `<button type="button" role="option" id="mr-${k}" data-map="${esc(m.id)}" data-search-pick="1" aria-selected="${k === searchSel}">${m.id === 'all-maps' ? '<span class="mr-img"></span>' : `<img class="mr-img" src="assets/maps/${esc(m.id)}.jpg" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`}<span class="mr-nm">${esc(m.name)}</span><span class="mr-mode">${esc(m.mode)}</span></button>`).join('')
-      : `<div class="mr-none">일치하는 맵이 없습니다.</div>`;
-    $('mapSearch').setAttribute('aria-activedescendant', searchHits.length ? `mr-${searchSel}` : '');
     filterRail(q);
+    if (NARROW.matches) {
+      searchHits = mapMatches(q).slice(0, 8);
+      if (searchSel >= searchHits.length) searchSel = 0;
+      box.hidden = !open;
+      $('mapSearch').setAttribute('aria-controls', 'mapResults');
+      $('mapSearch').setAttribute('aria-expanded', String(open));
+      box.innerHTML = !open ? '' : searchHits.length ? searchHits.map((m, k) =>
+        `<button type="button" role="option" id="mr-${k}" data-map="${esc(m.id)}" data-search-pick="1" aria-selected="${k === searchSel}">${m.id === 'all-maps' ? '<span class="mr-img"></span>' : `<img class="mr-img" src="assets/maps/${esc(m.id)}.jpg" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`}<span class="mr-nm">${esc(m.name)}</span><span class="mr-mode">${esc(m.mode)}</span></button>`).join('')
+        : `<div class="mr-none">일치하는 맵이 없습니다.</div>`;
+      $('mapSearch').setAttribute('aria-activedescendant', open && searchHits.length ? `mr-${searchSel}` : '');
+      return;
+    }
+    box.hidden = true;
+    const btns = open ? [...document.querySelectorAll('#rail .map-btn:not(.hide)')] : [];
+    searchHits = btns.map(b => ({id: b.dataset.map}));
+    if (searchSel >= searchHits.length) searchSel = 0;
+    btns.forEach((b, k) => b.classList.toggle('kb', k === searchSel));
+    $('mapSearch').setAttribute('aria-controls', 'rail');
+    $('mapSearch').setAttribute('aria-expanded', String(open));
+    $('mapSearch').setAttribute('aria-activedescendant', btns.length ? btns[searchSel].id : '');
   }
   function filterRail(q){
     const ids = norm(q) ? new Set(mapMatches(q).map(m => m.id)) : null;
-    for (const b of document.querySelectorAll('#rail .map-btn')) b.classList.toggle('hide', !!ids && !ids.has(b.dataset.map));
+    for (const b of document.querySelectorAll('#rail .map-btn')) { b.classList.toggle('hide', !!ids && !ids.has(b.dataset.map)); b.classList.remove('kb'); }
     for (const g of document.querySelectorAll('#rail .mode')) g.classList.toggle('hide', !!ids && !g.querySelector('.map-btn:not(.hide)'));
+    const lg = document.querySelector('#rail .legend'); if (lg) lg.hidden = !!ids;
+    $('railNone').hidden = !ids || ids.size > 0;
   }
   function closeSearch(){ $('mapSearch').value = ''; searchSel = 0; renderSearch(); }
   function renderRail(){
     const item = (id, name, cls) => {
       const n = BK().N[id]; const [rc, rl] = relOf(n);
-      return `<button type="button" class="map-btn ${cls || ''}" data-map="${id}" aria-current="${state.map === id}" title="추정 ${fmtInt(n)}경기, 표본 신뢰도 ${rl}"><span class="dot ${rc}" aria-hidden="true"></span><span class="nm">${esc(name)}</span><span class="n">${fmtInt(n)}</span></button>`;
+      return `<button type="button" class="map-btn ${cls || ''}" id="rb-${id}" data-map="${id}" aria-current="${state.map === id}" title="추정 ${fmtInt(n)}경기, 표본 신뢰도 ${rl}"><span class="dot ${rc}" aria-hidden="true"></span><span class="nm">${esc(name)}</span><span class="n">${fmtInt(n)}</span></button>`;
     };
     let html = item('all-maps', '전체 맵 종합', 'all');
     for (const mode of MODES) {
@@ -838,7 +865,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       opts += `</optgroup>`;
     }
     $('mapSelect').innerHTML = opts;
-    filterRail($('mapSearch').value);
+    renderSearch();
   }
 
   function renderStale(){
@@ -1361,7 +1388,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     if (mapEl && heroEl && mapEl === heroEl) { state.map = mapEl.dataset.map; state.focus = +heroEl.dataset.hero; renderAll(); scrollToBoard(); return; }
     if (mapEl) {
       state.map = mapEl.dataset.map;
-      if (mapEl.dataset.searchPick) { closeSearch(); }
+      if (mapEl.dataset.searchPick || (mapEl.closest('#rail') && $('mapSearch').value)) { closeSearch(); }
       renderAll(); if (mapEl.closest('#heat')) scrollToBoard(); return;
     }
     if (heroEl) { const i = +heroEl.dataset.hero; state.focus = (state.focus === i ? null : i); lightRender(); return; }
@@ -1374,7 +1401,8 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       e.preventDefault();
       searchSel = (searchSel + (e.key === 'ArrowDown' ? 1 : -1) + searchHits.length) % searchHits.length;
       renderSearch();
-      const el = document.getElementById(`mr-${searchSel}`); if (el) el.scrollIntoView({block:'nearest'});
+      const el = NARROW.matches ? document.getElementById(`mr-${searchSel}`) : document.querySelector('#rail .map-btn.kb');
+      if (el) el.scrollIntoView({block:'nearest'});
     } else if (e.key === 'Enter') {
       if (!searchHits.length) return;
       e.preventDefault();
@@ -1385,6 +1413,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   });
   document.addEventListener('click', e => { if (!e.target.closest('#mapSearchBox')) { $('mapResults').hidden = true; $('mapSearch').setAttribute('aria-expanded', 'false'); } });
   $('mapSearch').addEventListener('focus', () => { if ($('mapSearch').value) renderSearch(); });
+  NARROW.addEventListener('change', renderSearch);
   $('trendHero').addEventListener('change', e => { state.focus = +e.target.value; lightRender(); });
   let rz = 0, lastW = window.innerWidth;
   window.addEventListener('resize', () => { if (window.innerWidth === lastW) return; lastW = window.innerWidth; clearTimeout(rz); rz = setTimeout(() => { if (state.view === 'detail' && D) renderTrend(); }, 150); });
