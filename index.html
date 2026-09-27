@@ -113,6 +113,17 @@ button,select,input{font:inherit;color:inherit}
 .legend{font-size:12px;color:var(--muted);margin-top:16px;padding:0 8px;display:grid;gap:4px}
 .legend span{display:inline-flex;align-items:center;gap:7px}
 .mapselect{display:none}
+.map-search{position:relative;margin-bottom:16px;max-width:420px}
+.map-search input{width:100%;height:40px;padding:0 12px 0 36px;border:1px solid var(--line);background:var(--panel) no-repeat 11px 50%/16px 16px;font-size:14.5px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238993A2' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E")}
+.map-search input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+.map-results{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;background:var(--panel);border:1px solid var(--line);box-shadow:0 10px 30px rgba(10,15,25,.18);max-height:340px;overflow:auto}
+.map-results button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;padding:8px 12px;text-align:left;cursor:pointer;font-size:14px;color:var(--ink)}
+.map-results button[aria-selected="true"],.map-results button:hover{background:var(--hl)}
+.map-results .mr-img{width:48px;height:27px;object-fit:cover;flex:none;background:var(--panel-2)}
+.map-results .mr-nm{flex:1;min-width:0;font-weight:600}
+.map-results .mr-mode{font-size:12px;color:var(--muted)}
+.map-results .mr-none{padding:10px 12px;font-size:13px;color:var(--muted)}
+.rail .map-btn.hide,.rail .mode.hide{display:none}
 
 /* board */
 #boardPanel{scroll-margin-top:calc(env(safe-area-inset-top,0px) + 14px)}
@@ -482,6 +493,11 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   <div class="layout">
     <nav class="rail" aria-label="맵 선택" id="rail"></nav>
     <main>
+      <div class="map-search" id="mapSearchBox">
+        <input type="search" id="mapSearch" placeholder="맵 검색 (예: 부산, 리장, ㅇㄹㅇㅅ)" autocomplete="off" spellcheck="false"
+          role="combobox" aria-expanded="false" aria-controls="mapResults" aria-autocomplete="list" aria-label="맵 검색">
+        <div class="map-results" id="mapResults" role="listbox" hidden></div>
+      </div>
       <select class="mapselect" id="mapSelect" aria-label="맵 선택"></select>
       <section class="board-panel" id="boardPanel">
         <div class="map-head">
@@ -760,6 +776,48 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     syncWeights();
   }
 
+  // ---- map search: name, short name, English id and Korean initial consonants (e.g. ㄹㅈ → 리장 타워)
+  const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+  const chosung = t => Array.from(t).map(ch => { const c = ch.charCodeAt(0) - 0xAC00; return c >= 0 && c < 11172 ? CHO[Math.floor(c / 588)] : ch; }).join('');
+  const norm = t => String(t).toLowerCase().replace(/[\s:·\-_]/g, '');
+  let searchHits = [], searchSel = 0;
+  function mapMatches(q){
+    const n = norm(q);
+    if (!n) return [];
+    const onlyCho = /^[ㄱ-ㅎ]+$/.test(n);
+    const all = [{id:'all-maps', name:'전체 맵 종합', short:'전체', mode:`${MAP_IDS.length}개 맵`}].concat(MAPS);
+    const scored = [];
+    for (const m of all) {
+      const keys = [m.name, m.short, m.id.replace(/-/g, ' ')].map(norm);
+      const cho = norm(chosung(m.name));
+      let score = -1;
+      for (const k of keys) { if (k.startsWith(n)) score = Math.max(score, 3); else if (k.includes(n)) score = Math.max(score, 2); }
+      if (onlyCho && cho.includes(n)) score = Math.max(score, cho.startsWith(n) ? 2.5 : 1.5);
+      if (score >= 0) scored.push([score, m]);
+    }
+    return scored.sort((a, b) => b[0] - a[0]).map(x => x[1]);
+  }
+  function renderSearch(){
+    const q = $('mapSearch').value;
+    const box = $('mapResults');
+    searchHits = mapMatches(q).slice(0, 8);
+    if (searchSel >= searchHits.length) searchSel = 0;
+    const open = norm(q).length > 0;
+    box.hidden = !open;
+    $('mapSearch').setAttribute('aria-expanded', String(open));
+    if (!open) { filterRail(''); return; }
+    box.innerHTML = searchHits.length ? searchHits.map((m, k) =>
+      `<button type="button" role="option" id="mr-${k}" data-map="${esc(m.id)}" data-search-pick="1" aria-selected="${k === searchSel}">${m.id === 'all-maps' ? '<span class="mr-img"></span>' : `<img class="mr-img" src="assets/maps/${esc(m.id)}.jpg" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`}<span class="mr-nm">${esc(m.name)}</span><span class="mr-mode">${esc(m.mode)}</span></button>`).join('')
+      : `<div class="mr-none">일치하는 맵이 없습니다.</div>`;
+    $('mapSearch').setAttribute('aria-activedescendant', searchHits.length ? `mr-${searchSel}` : '');
+    filterRail(q);
+  }
+  function filterRail(q){
+    const ids = norm(q) ? new Set(mapMatches(q).map(m => m.id)) : null;
+    for (const b of document.querySelectorAll('#rail .map-btn')) b.classList.toggle('hide', !!ids && !ids.has(b.dataset.map));
+    for (const g of document.querySelectorAll('#rail .mode')) g.classList.toggle('hide', !!ids && !g.querySelector('.map-btn:not(.hide)'));
+  }
+  function closeSearch(){ $('mapSearch').value = ''; searchSel = 0; renderSearch(); }
   function renderRail(){
     const item = (id, name, cls) => {
       const n = BK().N[id]; const [rc, rl] = relOf(n);
@@ -780,6 +838,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       opts += `</optgroup>`;
     }
     $('mapSelect').innerHTML = opts;
+    filterRail($('mapSearch').value);
   }
 
   function renderStale(){
@@ -1300,10 +1359,32 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     const mapEl = t.closest('[data-map]');
     const heroEl = t.closest('[data-hero]');
     if (mapEl && heroEl && mapEl === heroEl) { state.map = mapEl.dataset.map; state.focus = +heroEl.dataset.hero; renderAll(); scrollToBoard(); return; }
-    if (mapEl) { state.map = mapEl.dataset.map; renderAll(); if (mapEl.closest('#heat')) scrollToBoard(); return; }
+    if (mapEl) {
+      state.map = mapEl.dataset.map;
+      if (mapEl.dataset.searchPick) { closeSearch(); }
+      renderAll(); if (mapEl.closest('#heat')) scrollToBoard(); return;
+    }
     if (heroEl) { const i = +heroEl.dataset.hero; state.focus = (state.focus === i ? null : i); lightRender(); return; }
   });
   $('mapSelect').addEventListener('change', e => { state.map = e.target.value; renderAll(); });
+  $('mapSearch').addEventListener('input', () => { searchSel = 0; renderSearch(); });
+  $('mapSearch').addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!searchHits.length) return;
+      e.preventDefault();
+      searchSel = (searchSel + (e.key === 'ArrowDown' ? 1 : -1) + searchHits.length) % searchHits.length;
+      renderSearch();
+      const el = document.getElementById(`mr-${searchSel}`); if (el) el.scrollIntoView({block:'nearest'});
+    } else if (e.key === 'Enter') {
+      if (!searchHits.length) return;
+      e.preventDefault();
+      state.map = searchHits[searchSel].id; closeSearch(); renderAll();
+    } else if (e.key === 'Escape') {
+      closeSearch();
+    }
+  });
+  document.addEventListener('click', e => { if (!e.target.closest('#mapSearchBox')) { $('mapResults').hidden = true; $('mapSearch').setAttribute('aria-expanded', 'false'); } });
+  $('mapSearch').addEventListener('focus', () => { if ($('mapSearch').value) renderSearch(); });
   $('trendHero').addEventListener('change', e => { state.focus = +e.target.value; lightRender(); });
   let rz = 0, lastW = window.innerWidth;
   window.addEventListener('resize', () => { if (window.innerWidth === lastW) return; lastW = window.innerWidth; clearTimeout(rz); rz = setTimeout(() => { if (state.view === 'detail' && D) renderTrend(); }, 150); });
