@@ -414,7 +414,6 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     <p class="custom-note" id="homeCustom" hidden></p>
     <div class="rtboard" id="homeBoard"></div>
     <div class="home-head second"><h2>맵별 메타</h2></div>
-    <p class="home-sub" id="homeSub"></p>
     <div class="mgrid" id="mgrid"></div>
     <p class="home-foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다. <button type="button" class="linklike" data-view="method">계산 방식 보기</button></p>
   </section>
@@ -792,7 +791,6 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     }
     $('mgrid').innerHTML = html;
     $('homeSample').textContent = `${D.meta.label} · 전체 티어(${B.ranks}) · ${MAP_IDS.length}개 맵 종합 · 추정 ${fmtInt(B.N['all-maps'])}경기`;
-    $('homeSub').innerHTML = `맵마다 역할별 지수 상위 돌격 1·공격 2·지원 2명입니다. <span class="star" aria-hidden="true">★</span> 전체 맵 조합에 없던 영웅.`;
     const custom = !state.smooth || ['wr','pr','br'].some(k => state.w[k] !== DEFAULT_W[k]);
     const cn = $('homeCustom');
     cn.hidden = !custom;
