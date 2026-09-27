@@ -297,9 +297,32 @@ body:not([data-view="home"]) #homeView,body:not([data-view="detail"]) #detailVie
 .crumb span{font-weight:600}
 .crumb + .panel{margin-top:14px}
 body[data-view="method"] .top .controls{visibility:hidden}
-.dtools{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:12px;padding:10px 0 14px;border-bottom:1px solid var(--line)}
-.dtools .segs,.dtools .row2{justify-content:flex-start}
-.dtools .wbody{left:0;right:auto}
+.dtools{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 22px;margin-top:12px;padding:10px 0 16px;border-bottom:1px solid var(--line)}
+.tgroup{display:flex;flex-direction:column;gap:5px;min-width:0}
+.tgl{font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.03em}
+.topt{margin-left:auto}
+.dtools .seg{height:40px;align-items:stretch;flex-wrap:nowrap}
+.dtools .seg button{display:inline-flex;align-items:center;justify-content:center;padding:0 14px}
+.dtools .seg-b button{flex-direction:row;gap:8px;line-height:1}
+.dtools .seg-b button .rk img{width:20px;height:20px}
+.dtools .seg-b button .rk.mini img{width:14px;height:14px}
+.dtools .row2{display:flex;gap:8px;align-items:stretch;flex-wrap:nowrap;justify-content:flex-start}
+.dtools .toggle,.dtools .weights summary{height:40px;display:flex;align-items:center;padding:0 13px}
+.dtools .weights{position:relative}
+.dtools .wbody{left:auto;right:0}
+@media (max-width: 1180px){ .topt{margin-left:0} .dtools .wbody{left:0;right:auto} }
+@media (max-width: 560px){
+  .dtools{gap:12px}
+  .tgroup{width:100%}
+  .dtools .seg{height:auto;width:100%}
+  .dtools .seg-b{display:grid;grid-template-columns:repeat(4,1fr)}
+  .dtools .seg-b button{flex-direction:column;gap:3px;padding:6px 2px}
+  .dtools #seg{display:grid;grid-template-columns:repeat(3,1fr)}
+  .dtools #seg button{height:36px}
+  .dtools .row2{width:100%;flex-wrap:wrap}
+  .dtools .toggle{flex:none}
+  .dtools .weights{flex:1;min-width:0}
+}
 .dtools + .layout{margin-top:16px}
 .seg-b button .rk.mini img{width:17px;height:17px}
 
@@ -435,8 +458,9 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   <div id="detailView">
   <div class="crumb"><button type="button" class="back" data-view="home">← 한눈에 보기</button><span>맵·영웅 상세</span></div>
   <div class="dtools">
-      <div class="segs"><div class="seg seg-b" role="group" aria-label="구간" id="segB"></div><div class="seg" role="group" aria-label="역할" id="seg"></div></div>
-      <div class="row2">
+      <div class="tgroup"><span class="tgl">구간</span><div class="seg seg-b" role="group" aria-label="구간" id="segB"></div></div>
+      <div class="tgroup"><span class="tgl">역할</span><div class="seg" role="group" aria-label="역할" id="seg"></div></div>
+      <div class="tgroup topt"><span class="tgl">옵션</span><div class="row2">
         <label class="toggle" title="표본이 적은 맵의 수치를 영웅의 서버 전체 성적과 해외 같은 구간의 맵 경향 쪽으로 보정"><input type="checkbox" id="smooth"> 표본 보정</label>
         <details class="weights" id="weights">
           <summary><span class="wt">지수 가중치</span><span class="wl" id="wlabel"></span></summary>
@@ -451,7 +475,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
             <button type="button" id="wreset">기본값(50 / 30 / 20)으로 되돌리기</button>
           </div>
         </details>
-      </div>
+      </div></div>
   </div>
   <div class="layout">
     <nav class="rail" aria-label="맵 선택" id="rail"></nav>
