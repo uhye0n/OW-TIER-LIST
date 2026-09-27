@@ -257,7 +257,7 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
 .detail .muted{color:var(--faint)}
 .chip.thin{opacity:.55}
 .chip.thin.on{opacity:1}
-.edge{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:600;color:var(--muted);border:1px solid var(--line);padding:0 4px;vertical-align:1px}
+
 [aria-busy="true"]{opacity:.55}
 
 /* header when the controls wrap under the title */
@@ -558,7 +558,6 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
           <li><b>맵 카드</b>: 그 맵의 역할별 지수 상위 돌격 1·공격 2·지원 2 (역할마다 따로 뽑은 것이라 실제 함께 쓰인 조합은 아님)</li>
           <li><b>★</b>: 전체 맵 종합에서는 상위(돌격 1위, 공격·지원 2위 안)가 아니지만 이 맵에서는 상위에 든 영웅</li>
           <li><b>▲▼</b>: 직전 기록 대비 티어 변동(기본 가중치·보정 기준)</li>
-          <li><b>경계</b>: 티어 경계에서 1점 안쪽이라 가중치에 따라 한 칸 바뀔 수 있는 영웅</li>
           <li><b>영웅 추이</b>: 하루 한 번 저장한 전체 맵 기록(지수는 기본 가중치·보정, 픽률·승률·밴률은 원본)</li>
           <li><b>패치 감지</b>: 경기 수가 직전의 70% 아래로 떨어지면 새 패치로 보고 지난 패치 마지막 기록과 비교</li>
         </ul>
@@ -656,7 +655,6 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     return {pr:cell[3], wr:(cell[4] == null ? 50 : mirror(cell[4], cell[3])), br:cell[5], miss:false};
   }
   const relHero = g => g >= 400 ? '높음' : g >= 100 ? '보통' : '낮음';
-  const nearEdge = x => [62, 55, 46, 40].some(t => Math.abs(x - (t - 0.5)) < 1.5);
   const consts = role => (BK().c && BK().c[role]) || (D.roles[role] && D.roles[role].c);
   function comps(v, C){
     const prav = Math.max(0.1, v.pr) / Math.max(0.3, 1 - v.br / 100);
@@ -1103,7 +1101,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       const dl = Math.round(r.delta);
       h += `<tr data-hero="${r.i}" class="${state.focus === r.i ? 'focus' : ''}">`;
       h += `<td><div class="who">${portrait(r.i, 'pt')}<div><strong>${esc(H[r.i].name)}</strong><span class="sub">${esc(H[r.i].sub)}</span></div></div></td>`;
-      h += `<td class="mi"><span class="badge t-${t}">${t}</span>${Math.round(r.mi)}${nearEdge(r.mi) ? '<span class="edge" title="티어 경계에서 1점 안쪽이라 가중치에 따라 한 칸 바뀔 수 있습니다">경계</span>' : ''}</td>`;
+      h += `<td class="mi"><span class="badge t-${t}">${t}</span>${Math.round(r.mi)}</td>`;
       if (PREV) {
         const mv = r.mv;
         let txt = '—';
