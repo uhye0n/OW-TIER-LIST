@@ -325,7 +325,6 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 .tr-tip b{display:block;font-size:12px;color:var(--muted);font-weight:600}
 .tr-tip .badge{font-size:11.5px;padding:0 5px;margin-right:5px}
 .tr-empty{padding:26px 0;color:var(--muted);font-size:13.5px}
-.tr-table summary{cursor:pointer;font-size:13px;color:var(--muted);margin-top:8px}
 @media (max-width: 560px){ .tr-metric{margin-left:0} }
 
 /* ---- home: all-maps tier board (three dark role panels) */
@@ -459,7 +458,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         <div class="board" id="board"></div>
       </section>
 
-      <section class="panel" id="trendPanel">
+      <section class="panel" id="trendPanel" hidden>
         <div class="tr-head">
           <h3>영웅 추이</h3>
           <select id="trendHero" aria-label="추이를 볼 영웅"></select>
@@ -467,7 +466,6 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         </div>
         <p class="hint" id="trendHint"></p>
         <div class="tr-chart" id="trendChart"></div>
-        <details class="tr-table"><summary>표로 보기</summary><div class="table-wrap"><table class="ctable" id="trendTable"></table></div></details>
       </section>
 
       <section class="panel">
@@ -896,13 +894,12 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   const ARC = {};
   const METRICS = [['mi','지수'],['pr','픽률'],['wr','승률'],['br','밴률']];
   let trendMetric = 'mi';
-  function trendHeroIdx(){
-    if (state.focus != null && H[state.focus] && H[state.focus].role === state.role) return state.focus;
-    const mi = MI['all-maps'];
-    return IDX.slice().sort((a, b) => mi[b] - mi[a])[0];
-  }
+  // shown only while a hero is selected
   function renderTrend(){
-    const idxHero = trendHeroIdx();
+    const panel = $('trendPanel');
+    const idxHero = (state.focus != null && H[state.focus] && H[state.focus].role === state.role) ? state.focus : null;
+    panel.hidden = idxHero == null;
+    if (idxHero == null) return;
     const sel = $('trendHero');
     sel.innerHTML = IDX.slice().sort((a, b) => H[a].name.localeCompare(H[b].name, 'ko')).map(i => `<option value="${i}"${i === idxHero ? ' selected' : ''}>${esc(H[i].name)}</option>`).join('');
     $('trendMetric').innerHTML = METRICS.map(([k, l]) => `<button type="button" data-tmetric="${k}" aria-pressed="${trendMetric === k}">${l}</button>`).join('');
@@ -916,17 +913,15 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         .catch(() => { ARC[sv] = false; if (state.server === sv && state.view === 'detail') renderTrend(); });
     }
     const arc = ARC[sv];
-    const chart = $('trendChart'), hint = $('trendHint'), table = $('trendTable');
+    const chart = $('trendChart'), hint = $('trendHint');
     if (!arc) {
       chart.innerHTML = `<div class="tr-empty">${arc === false ? '기록을 불러오지 못했습니다.' : '기록을 불러오는 중입니다…'}</div>`;
-      hint.textContent = ''; table.innerHTML = ''; return;
+      hint.textContent = ''; return;
     }
     const hid = H[idxHero].id, bid = curB();
     const pts = arc.days.map(d => { const b = d.b[bid]; const v = b && b.h[hid]; return v ? {d:d.d, mi:v[0], pr:v[1], wr:v[2], br:v[3]} : null; }).filter(Boolean);
     const bl = BK().label;
     hint.textContent = `${D.meta.label} · ${bl} 구간 · 전체 맵 · 하루 1회 기록` + (pts.length ? ` · ${pts.length}일째 (${pts[0].d.slice(5).replace('-', '.')}부터)` : '');
-    table.innerHTML = `<thead><tr><th>날짜</th><th>지수</th><th>픽률</th><th>승률</th><th>밴률</th></tr></thead><tbody>` +
-      pts.slice().reverse().map(p => `<tr><td>${p.d}</td><td>${tierOf(p.mi)} ${p.mi}</td><td>${pct(p.pr)}</td><td>${pct(p.wr)}</td><td>${pct(p.br)}</td></tr>`).join('') + '</tbody>';
     if (!pts.length) { chart.innerHTML = `<div class="tr-empty">이 영웅의 기록이 아직 없습니다.</div>`; return; }
 
     const key = trendMetric;
