@@ -296,6 +296,8 @@ body:not([data-view="home"]) #homeView,body:not([data-view="detail"]) #detailVie
 .crumb .back:hover{background:var(--hl)}
 .crumb span{font-weight:600}
 .crumb + .panel{margin-top:14px}
+.site-note{margin:14px 0 0;padding:10px 14px;border-left:3px solid var(--t-a);background:var(--panel);font-size:13.5px}
+.site-note.err{border-left-color:var(--t-s)}
 body[data-view="method"] .top .controls{visibility:hidden}
 .dtools{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 22px;margin-top:12px;padding:10px 0 16px;border-bottom:1px solid var(--line)}
 .tgroup{display:flex;flex-direction:column;gap:5px;min-width:0}
@@ -442,6 +444,8 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       <div class="segs"><div class="seg" role="group" aria-label="서버" id="segS"></div></div>
     </div>
   </header>
+  <p class="site-note err" id="loadError" role="alert" hidden></p>
+  <p class="site-note" id="staleNote" hidden></p>
 
 
   <section id="homeView">
@@ -481,7 +485,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     <nav class="rail" aria-label="맵 선택" id="rail"></nav>
     <main>
       <select class="mapselect" id="mapSelect" aria-label="맵 선택"></select>
-      <section class="board-panel" id="boardPanel" aria-live="polite">
+      <section class="board-panel" id="boardPanel">
         <div class="map-head">
           <h2 id="mapName"></h2>
           <span class="mode-tag" id="modeTag"></span>
@@ -540,7 +544,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
           밴률 점수 = (ln(1 + 밴률) − μ) ÷ σ
         </div>
         <ul class="m-list">
-          <li>μ·σ는 구간·역할마다 해외 세 서버 합산 분포로 정합니다.</li>
+          <li>μ·σ는 서버·구간·역할마다, 실제로 점수를 매기는 값(보정값, 보정을 끄면 원본)의 분포로 정합니다. 그래서 세 점수의 폭이 같아져 50/30/20 비율이 그대로 반영됩니다.</li>
           <li>종합 점수는 구간·역할 안의 모든 맵·영웅 기준 평균 50, 표준편차 10으로 바꿉니다.</li>
           <li>미러전(양 팀이 같은 영웅)은 한 번 이기고 한 번 지는 판이라 인기 영웅의 승률을 50% 쪽으로 누르므로 걷어냅니다.</li>
           <li>같은 구간·역할 안에서만 비교하세요.</li>
@@ -583,7 +587,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
           <li><b>★</b>: 전체 맵 종합에서는 상위(돌격 1위, 공격·지원 2위 안)가 아니지만 이 맵에서는 상위에 든 영웅</li>
           <li><b>▲▼</b>: 직전 기록 대비 티어 변동(기본 가중치·보정 기준)</li>
           <li><b>영웅 추이</b>: 하루 한 번 저장한 전체 맵 기록(지수는 기본 가중치·보정, 픽률·승률·밴률은 원본)</li>
-          <li><b>패치 감지</b>: 경기 수가 직전의 70% 아래로 떨어지면 새 패치로 보고 지난 패치 마지막 기록과 비교</li>
+          <li><b>패치 감지</b>: 경기 수가 직전의 70% 아래로 떨어지면 새 패치로 보고, 7일 동안 지난 패치 마지막 기록과 비교(이틀 안에 경기 수가 회복되면 감지 취소)</li>
         </ul>
         <h4>주의할 점</h4>
         <ul class="m-list muted">
@@ -656,19 +660,27 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     if (!ALL_IDS.includes(state.map)) state.map = 'all-maps';
     if (!d.roles[state.role]) state.role = 'tank';
   }
+  let loadSeq = 0;
+  // resolves true once the server's data is in place; false if a later switch superseded this one
   async function loadServer(id){
     const entry = INDEX.servers.find(s => s.id === id) || INDEX.servers[0];
-    state.server = entry.id;
+    const tok = ++loadSeq;
     if (!CACHE[entry.id]) {
       $('board').setAttribute('aria-busy', 'true');
-      const r = await fetch(`data/${entry.id}.json?v=${entry.hash}`);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      CACHE[entry.id] = await r.json();
-      $('board').removeAttribute('aria-busy');
+      try {
+        const r = await fetch(`data/${entry.id}.json?v=${entry.hash}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        CACHE[entry.id] = await r.json();
+      } finally {
+        if (tok === loadSeq) $('board').removeAttribute('aria-busy');
+      }
     }
+    if (tok !== loadSeq) return false;
+    state.server = entry.id;
     const focusId = state.focus != null && H[state.focus] ? H[state.focus].id : null;
     setData(CACHE[entry.id]);
     state.focus = focusId ? (H.findIndex(h => h.id === focusId) >= 0 ? H.findIndex(h => h.id === focusId) : null) : null;
+    return true;
   }
 
   // win rate without mirror matches (both teams on the hero = one win + one loss): 50 + (wr - 50) / (1 - p)
@@ -679,7 +691,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     return {pr:cell[3], wr:(cell[4] == null ? 50 : mirror(cell[4], cell[3])), br:cell[5], miss:false};
   }
   const relHero = g => g >= 400 ? '높음' : g >= 100 ? '보통' : '낮음';
-  const consts = role => (BK().c && BK().c[role]) || (D.roles[role] && D.roles[role].c);
+  const consts = role => { const b = BK(); return ((!state.smooth && b.cr) ? b.cr : b.c)[role]; };
   function comps(v, C){
     const prav = Math.max(0.1, v.pr) / Math.max(0.3, 1 - v.br / 100);
     return [(v.wr - 50) / C.wr_sd, (Math.log(prav) - C.pr_mu) / C.pr_sd, (Math.log(1 + Math.max(0, v.br)) - C.br_mu) / C.br_sd];
@@ -716,7 +728,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   function compute(){
     IDX = roleIdx();
     MI = miFor(state.w, state.smooth);
-    MI0 = miFor(DEFAULT_W, true);   // basis for change markers, same as the stored snapshots
+    MI0 = BK().mi0 || miFor(DEFAULT_W, true);   // basis for change markers: exactly what the snapshots stored
     PREV = null;
     const cmp = D.compare;
     if (cmp && cmp.mi && cmp.mi[curB()]) {
@@ -772,6 +784,14 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     $('mapSelect').innerHTML = opts;
   }
 
+  function renderStale(){
+    const el = $('staleNote');
+    const t = INDEX && INDEX.collectedAt ? new Date(INDEX.collectedAt) : null;
+    const days = t && !isNaN(t) ? (Date.now() - t.getTime()) / 864e5 : 0;
+    el.hidden = days < 2;
+    if (!el.hidden) el.textContent = `공식 통계가 ${Math.floor(days)}일째 새로 반영되지 않았습니다. 자동 갱신이 멈췄을 수 있어, 지금 보이는 수치는 마지막으로 반영된 값입니다.`;
+    $('loadError').hidden = true;
+  }
   function renderPatch(){
     const el = $('patchNote');
     const meta = D.meta || {};
@@ -815,7 +835,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 
     // tier change vs the comparison snapshot, on the same basis as the detail view (default weights, smoothed)
     const MI0R = {};
-    if (PREV) for (const [r] of ROLES) MI0R[r] = miFor(DEFAULT_W, true, r);
+    if (PREV) for (const [r] of ROLES) MI0R[r] = BK().mi0 || miFor(DEFAULT_W, true, r);
     const markOf = (r, i) => {
       if (!PREV) return '';
       const p = PREV.get('all-maps', i); if (p == null) return '';
@@ -1178,9 +1198,9 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     const f = (x, d) => x.toFixed(d);
     const k = BK().k;
     $('kInfo').textContent = k ? `지금 ${BK().label} 구간 기준 승률 약 ${fmtInt(k.wr)}판, 픽률은 픽률 5% 영웅 약 ${fmtInt(k.pr5)}경기·20% 영웅 약 ${fmtInt(k.pr20)}경기, 밴률 5% 영웅 약 ${fmtInt(k.br5)}경기` : '';
-    let h = `<caption>현재 상수 (${esc(BK().label)} 구간)</caption><thead><tr><th>역할</th><th>σ승률</th><th>μ픽률</th><th>σ픽률</th><th>μ밴률</th><th>σ밴률</th></tr></thead><tbody>`;
+    let h = `<caption>현재 상수 (${esc(D.meta.label)} · ${esc(BK().label)} 구간, 보정값 기준)</caption><thead><tr><th>역할</th><th>σ승률</th><th>μ픽률</th><th>σ픽률</th><th>μ밴률</th><th>σ밴률</th></tr></thead><tbody>`;
     for (const [k, label] of ROLES) {
-      const c = consts(k);
+      const c = BK().c[k];
       h += `<tr><td>${label}</td><td>${f(c.wr_sd,2)}</td><td>${f(c.pr_mu,2)}</td><td>${f(c.pr_sd,2)}</td><td>${f(c.br_mu,2)}</td><td>${f(c.br_sd,2)}</td></tr>`;
     }
     $('ctable').innerHTML = h + '</tbody>';
@@ -1197,9 +1217,29 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     $('freshText').innerHTML = `<table class="fresh-table"><caption>데이터 반영 시각 · 6시간마다 자동으로 확인합니다</caption><tbody>${rows}</tbody></table>`;
   }
 
+  // controls are re-created on every render: remember which one had focus and put focus back afterwards
+  const FOCUS_KEYS = ['data-server','data-bracket','data-role','data-map','data-hero','data-sort','data-home-role','data-tmetric','data-go','data-go-hero','data-view'];
+  function focusKey(){
+    const el = document.activeElement;
+    if (!el || el === document.body || el.id) return null;
+    const scope = el.parentElement && el.parentElement.closest('[id]');
+    const attrs = FOCUS_KEYS.filter(a => el.hasAttribute(a)).map(a => `[${a}="${CSS.escape(el.getAttribute(a))}"]`).join('');
+    return attrs ? (scope ? `#${CSS.escape(scope.id)} ` : '') + attrs : null;
+  }
+  function restoreFocus(sel){
+    if (!sel) return;
+    const el = document.querySelector(sel);
+    if (el && el !== document.activeElement) el.focus({preventScroll:true});
+  }
   function renderAll(){
+    const fk = focusKey();
+    renderAllInner();
+    restoreFocus(fk);
+  }
+  function renderAllInner(){
     compute();
     renderControls();
+    renderStale();
     renderPatch();
     renderFresh();
     if (state.view === 'home') renderHome();
@@ -1207,7 +1247,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     else { renderRail(); renderBoard(); renderTrend(); renderScatter(); renderTable(); renderHeat(); }
     store.set('state', {server:state.server, role:state.role, map:state.map, w:state.w, smooth:state.smooth});
   }
-  function lightRender(){ renderBoard(); renderTrend(); renderScatter(); renderTable(); renderHeat(); }
+  function lightRender(){ const fk = focusKey(); renderBoard(); renderTrend(); renderScatter(); renderTable(); renderHeat(); restoreFocus(fk); }
   function setView(v, opts){
     opts = opts || {};
     if (!['home', 'detail', 'method'].includes(v)) v = 'home';
@@ -1219,7 +1259,12 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     else if (changed) window.scrollTo(0, 0);
   }
   function scrollToBoard(){ $('boardPanel').scrollIntoView({behavior: reduceMotion ? 'auto' : 'smooth', block:'start'}); }
-  function fail(e){ $('board').textContent = `데이터를 불러오지 못했습니다(${e.message}). 잠시 후 새로고침해 주세요.`; }
+  function fail(e){
+    const el = $('loadError');
+    el.textContent = `데이터를 불러오지 못했습니다(${e.message}). 잠시 후 새로고침해 주세요.`;
+    el.hidden = false;
+    $('board').removeAttribute('aria-busy');
+  }
 
   document.addEventListener('click', e => {
     const t = e.target;
@@ -1243,7 +1288,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     const viewEl = t.closest('[data-view]');
     if (viewEl && viewEl.tagName === 'BUTTON') { setView(viewEl.dataset.view, {anchor: viewEl.dataset.anchor}); return; }
     const svEl = t.closest('[data-server]');
-    if (svEl) { if (svEl.dataset.server !== state.server) loadServer(svEl.dataset.server).then(renderAll).catch(fail); return; }
+    if (svEl) { if (svEl.dataset.server !== state.server) loadServer(svEl.dataset.server).then(ok => { if (ok) renderAll(); }).catch(fail); return; }
     const bkEl = t.closest('[data-bracket]');
     if (bkEl) { state.bracket = bkEl.dataset.bracket; renderAll(); return; }
     const roleEl = t.closest('[data-role]');
@@ -1296,7 +1341,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   fetch('data/index.json?t=' + Math.floor(Date.now() / 6e5), {cache:'no-cache'})
     .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
     .then(idx => { INDEX = idx; return loadServer(INDEX.servers.some(s => s.id === state.server) ? state.server : INDEX.servers[0].id); })
-    .then(renderAll)
+    .then(ok => { if (ok) renderAll(); })
     .catch(fail);
 })();
 </script>

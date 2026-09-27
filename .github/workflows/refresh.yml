@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "17 */6 * * *"   # 6시간마다 (UTC 기준 00:17, 06:17, 12:17, 18:17)
   workflow_dispatch:          # Actions 탭에서 수동 실행
+    inputs:
+      force:
+        description: "공식 수치가 그대로여도 다시 계산"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -18,23 +23,39 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main            # always start from the latest main, also for runs that waited in the queue
+          fetch-depth: 50
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: 넥슨·블리자드 통계 수집과 계산
-        run: python refresh.py
+        run: python refresh.py ${{ inputs.force && '--force' || '' }}
 
       - name: 바뀐 내용 커밋
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data history archive
-          if ! git diff --cached --quiet; then
+          commit_all() {
+            git add data history archive
+            git diff --cached --quiet && return 1
             git commit -m "공식 통계 갱신 $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M')"
-            git push
-            exit 0
+          }
+          if commit_all; then
+            # someone may have pushed meanwhile: rebase, or recompute on top of the latest main, and retry
+            for attempt in 1 2 3; do
+              git push && exit 0
+              echo "push rejected (attempt $attempt), updating to the latest main"
+              git fetch origin main
+              if git rebase origin/main; then continue; fi
+              git rebase --abort
+              git reset --hard origin/main
+              python refresh.py --force
+              commit_all || exit 0
+            done
+            exit 1
           fi
           echo "통계 변동 없음"
           # GitHub는 60일 동안 저장소 활동이 없으면 예약 실행을 멈추므로, 45일간 커밋이 없으면 빈 커밋을 남긴다

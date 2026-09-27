@@ -24,8 +24,9 @@ import re
 import statistics as st
 import subprocess
 import sys
+import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -60,6 +61,10 @@ CAP = 780          # ban-rate quantization cannot resolve match counts at or abo
 RELIABLE = 600     # below this the quantization estimate is taken as exact
 PATCH_DROP = 0.7   # total matches falling below this share of the previous run = stats were reset
 HISTORY_KEEP = 40
+PATCH_COMPARE_DAYS = 7   # after a reset, compare against the last pre-reset snapshot for this long
+MODEL_VERSION = "2026-09-27.3"  # part of the change hash: a model change recomputes even if the sources did not move
+FETCH_DEADLINE = 20 * 60        # seconds; beyond this the scrape is abandoned (the job limit is 30 minutes)
+FAIL_STREAK = 8                 # consecutive failed pages from one source = blocked / down, stop early
 
 
 def log(msg):
@@ -124,22 +129,42 @@ def nuxt_payload(html):
     return h(0)
 
 
+ABORT = threading.Event()
+_streak = {}
+_streak_lock = threading.Lock()
+_t_start = time.time()
+
+
 def curl(url, headers=()):
-    cmd = ["curl", "-s", "-L", "--max-time", "40", "-A", UA]
+    cmd = ["curl", "-s", "-f", "-L", "--max-time", "25", "-A", UA]
     for hd in headers:
         cmd += ["-H", hd]
     r = subprocess.run(cmd + [url], capture_output=True, timeout=60)
     return r.stdout.decode("utf-8", "ignore")
 
 
-def retry(fn, what, tries=5):
+def retry(fn, what, tries=4, source=None):
     last = None
     for attempt in range(tries):
+        if ABORT.is_set():
+            raise RuntimeError(f"{what}: aborted")
+        if time.time() - _t_start > FETCH_DEADLINE:
+            ABORT.set()
+            raise RuntimeError(f"{what}: fetch deadline exceeded")
         try:
-            return fn()
+            out = fn()
+            if source:
+                with _streak_lock:
+                    _streak[source] = 0
+            return out
         except Exception as e:  # noqa: BLE001
             last = e
-            time.sleep(2 + 4 * attempt)
+            time.sleep(2 + 3 * attempt)
+    if source:
+        with _streak_lock:
+            _streak[source] = _streak.get(source, 0) + 1
+            if _streak[source] >= FAIL_STREAK:
+                ABORT.set()
     raise RuntimeError(f"{what}: {last}")
 
 
@@ -163,7 +188,7 @@ def nexon_fetch(region, rank, mp):
             meta[x["heroId"]] = {"name": x["name"], "role": x["role"], "sub": x.get("subrole"), "img": x.get("thumbnailUrl")}
         return rows, meta, (data.get("hero-rate-filters") or {}).get("data") or {}
 
-    return retry(go, f"nexon {region}/{rank}/{mp}")
+    return retry(go, f"nexon {region}/{rank}/{mp}", source="nexon")
 
 
 def blizz_fetch(region, rank, mp):
@@ -185,7 +210,7 @@ def blizz_fetch(region, rank, mp):
                              "sub": x["hero"].get("subrole"), "img": x["hero"].get("portrait")}
         return rows, meta, None
 
-    return retry(go, f"blizzard {region}/{tier}/{mp}")
+    return retry(go, f"blizzard {region}/{tier}/{mp}", source="blizzard")
 
 
 # ---------------------------------------------------------------- sample sizes
@@ -207,11 +232,13 @@ def est_n(bans, nmin=3, nmax=6000):
 
 def impute_offset(raw, ref):
     """Capped maps: same log-offset from the reference as the uncapped maps have (slope 1)."""
-    unc = [m for m in raw if raw[m] is not None and raw[m] < CAP and ref.get(m)]
+    unc = [m for m in raw if raw[m] and raw[m] < CAP and ref.get(m)]
     a = st.median([math.log(raw[m]) - math.log(ref[m]) for m in unc]) if unc else 0.0
     out = {}
     for m, n in raw.items():
-        if n is None or n >= CAP:
+        if n == 0:                      # no data on this map: no matches
+            out[m] = 0
+        elif n is None or n >= CAP:
             out[m] = max(800, round(math.exp(a + math.log(ref[m])))) if ref.get(m) else 800
         else:
             out[m] = n
@@ -220,7 +247,7 @@ def impute_offset(raw, ref):
 
 def impute_regress(raw, ref, fallback_ratio):
     """Log-linear fit on maps whose estimate is exact; applied to maps at or above RELIABLE."""
-    rel = [m for m in raw if raw[m] is not None and raw[m] < RELIABLE and ref.get(m)]
+    rel = [m for m in raw if raw[m] and raw[m] < RELIABLE and ref.get(m)]
     if len(rel) >= 5:
         xs = [math.log(ref[m]) for m in rel]
         ys = [math.log(raw[m]) for m in rel]
@@ -234,7 +261,7 @@ def impute_regress(raw, ref, fallback_ratio):
         beta, a = 1.0, math.log(max(fallback_ratio, 0.05))
     out = {}
     for m, n in raw.items():
-        if n is not None and n < RELIABLE:
+        if n == 0 or (n is not None and n < RELIABLE):
             out[m] = n
             continue
         pred = math.exp(a + beta * math.log(ref[m])) if ref.get(m) else 800
@@ -245,8 +272,12 @@ def impute_regress(raw, ref, fallback_ratio):
 
 def rank_shares(mix, parts, hero_ids, iters=5000):
     """Match share of each rank: the all-ranks pick and ban rates are a match-weighted
-    average of the per-rank rates, so solve mix = sum_r w_r * part_r with w >= 0, sum w = 1."""
-    keys = list(parts)
+    average of the per-rank rates, so solve mix = sum_r w_r * part_r with w >= 0, sum w = 1.
+    Ranks without any data get weight 0 (left out of the fit)."""
+    empty = [k for k in parts if not any(parts[k].get(h) for h in hero_ids)]
+    keys = [k for k in parts if k not in empty]
+    if not keys:
+        return {k: 0.0 for k in parts}
     A, b = [], []
     for h in hero_ids:
         if not mix.get(h) or not all(parts[k].get(h) for k in keys):
@@ -265,7 +296,9 @@ def rank_shares(mix, parts, hero_ids, iters=5000):
             g = sum(H[j][k] * w[k] for k in range(n)) - c[j]
             w[j] = max(0.0, w[j] - g / H[j][j])
     t = sum(w) or 1.0
-    return {k: w[i] / t for i, k in enumerate(keys)}
+    out = {k: w[i] / t for i, k in enumerate(keys)}
+    out.update({k: 0.0 for k in empty})
+    return out
 
 
 # ---------------------------------------------------------------- model helpers
@@ -325,26 +358,51 @@ def write_json(path, obj):
     os.replace(tmp, path)
 
 
-# ---------------------------------------------------------------- daily archive
-def default_mi(exp, bracket):
-    """Default-weight meta index from an exported server file, the same computation the page does
-    (smoothed cells, per role, scaled on the pool of every map x hero)."""
-    heroes, maps = exp["heroes"], [m["id"] for m in exp["maps"]]
-    cells, out = bracket["cells"], {}
+# ---------------------------------------------------------------- constants and index
+def consts_of(triples):
+    """Standardization constants from (win rate without mirrors, pick, ban) values: each score then has a
+    spread of about 1, so the 50/30/20 weights mean what they say."""
+    if len(triples) < 3:
+        return {"wr_sd": 3.0, "pr_mu": 1.5, "pr_sd": 0.6, "br_mu": 1.0, "br_sd": 1.0}
+    w = [t[0] - 50 for t in triples]
+    p = [math.log(max(0.1, t[1]) / max(0.3, 1 - t[2] / 100)) for t in triples]
+    b = [math.log(1 + max(0.0, t[2])) for t in triples]
+    return {"wr_sd": round(max(math.sqrt(sum(x * x for x in w) / len(w)), 0.05), 3),
+            "pr_mu": round(st.mean(p), 4), "pr_sd": round(max(st.pstdev(p), 0.01), 3),
+            "br_mu": round(st.mean(b), 3), "br_sd": round(max(st.pstdev(b), 0.01), 3)}
+
+
+def half_up(x):
+    return int(math.floor(x + 0.5))
+
+
+def mi_cells(heroes, map_ids, cells, consts, w=(0.5, 0.3, 0.2)):
+    """Meta index from exported (rounded) smoothed cells, exactly as the page computes it with default weights:
+    per role, composite of the standardized scores, scaled to mean 50 / sd 10 on the map x hero pool."""
+    out = {m: [None] * len(heroes) for m in cells}
     for role in ROLE_ORDER:
-        C = bracket["c"][role]
+        C = consts[role]
         idx = [i for i, h in enumerate(heroes) if h["role"] == role]
 
         def comp(c):
             prav = max(0.1, c[0]) / max(0.3, 1 - c[2] / 100)
             z = ((c[1] - 50) / C["wr_sd"], (math.log(prav) - C["pr_mu"]) / C["pr_sd"],
                  (math.log(1 + max(0.0, c[2])) - C["br_mu"]) / C["br_sd"])
-            return 0.5 * z[0] + 0.3 * z[1] + 0.2 * z[2]
-        pool = [comp(cells[m][i]) for m in maps for i in idx] or [comp(cells["all-maps"][i]) for i in idx]
+            return w[0] * z[0] + w[1] * z[1] + w[2] * z[2]
+        pool = [comp(cells[m][i]) for m in map_ids for i in idx] or [comp(cells["all-maps"][i]) for i in idx]
         mu, sd = st.mean(pool), (st.pstdev(pool) or 1.0)
-        for i in idx:
-            out[heroes[i]["id"]] = round(50 + 10 * (comp(cells["all-maps"][i]) - mu) / sd)
+        for m in cells:
+            for i in idx:
+                out[m][i] = half_up(50 + 10 * (comp(cells[m][i]) - mu) / sd)
     return out
+
+
+# ---------------------------------------------------------------- daily archive
+def default_mi(exp, bracket):
+    if bracket.get("mi0"):
+        return {h["id"]: v for h, v in zip(exp["heroes"], bracket["mi0"]["all-maps"])}
+    mi = mi_cells(exp["heroes"], [m["id"] for m in exp["maps"]], bracket["cells"], bracket["c"])
+    return {h["id"]: v for h, v in zip(exp["heroes"], mi["all-maps"])}
 
 
 def update_archive(path, exp):
@@ -424,21 +482,43 @@ def main():
         kind, reg = src[s]
         return job, (nexon_fetch if kind == "nexon" else blizz_fetch)(reg, r, m)
 
-    try:
-        with ThreadPoolExecutor(max_workers=6) as ex:
-            for (s, r, m), (rows, meta, _) in ex.map(work, jobs):
-                raw[s][r or "all"][m] = rows
-                (meta_kr if s == "kr" else meta_bz).update(meta)
-    except RuntimeError as e:
-        die(f"fetch failed: {e}")
+    failed, fatal = [], None
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        futs = {ex.submit(work, j): j for j in jobs}
+        for f in as_completed(futs):
+            s, r, m = futs[f]
+            try:
+                _, (rows, meta, _) = f.result()
+            except Exception as e:  # noqa: BLE001
+                failed.append((s, r, m, str(e)))
+                # a missing all-maps page or a blocked source cannot be worked around
+                if m == "all-maps" or ABORT.is_set():
+                    fatal = fatal or str(e)
+                    ABORT.set()
+                    ex.shutdown(wait=False, cancel_futures=True)
+                    break
+                continue
+            raw[s][r or "all"][m] = rows
+            (meta_kr if s == "kr" else meta_bz).update(meta)
+    if fatal:
+        die(f"fetch failed ({len(failed)} pages): {fatal}")
+    if len(failed) > 0.05 * len(jobs):
+        die(f"too many failed pages: {len(failed)} of {len(jobs)}, e.g. {failed[0][3]}")
+    for s, r, m, err in failed:          # a few single-map pages failed: treat that map as having no data
+        log(f"WARNING no data for {s}/{r or 'all'}/{m}: {err}")
+        raw[s][r or "all"][m] = {}
     log(f"Fetched in {time.time() - t0:.0f}s")
 
     # ---- heroes and validation
-    hero_ids = [h for h in meta_kr if meta_kr[h]["role"] in ROLE_ORDER]
-    hero_ids.sort(key=lambda h: (ROLE_ORDER[meta_kr[h]["role"]], meta_kr[h]["name"]))
+    meta_all = {**meta_bz, **meta_kr}      # Korean names and roles from Nexon when both have the hero
+    hero_ids = [h for h in meta_all if meta_all[h]["role"] in ROLE_ORDER]
+    hero_ids.sort(key=lambda h: (ROLE_ORDER[meta_all[h]["role"]], meta_all[h]["name"]))
     if len(hero_ids) < 40:
         die(f"only {len(hero_ids)} heroes")
-    role_of = {h: meta_kr[h]["role"] for h in hero_ids}
+    for h in hero_ids:
+        if h not in meta_kr or h not in meta_bz:
+            log(f"NOTE hero {h} is listed by only one source")
+    role_of = {h: meta_all[h]["role"] for h in hero_ids}
     for s, _, _, _ in SERVERS:
         alls = [json.dumps(raw[s][r]["all-maps"], sort_keys=True) for r in RANKS + ["all"]]
         if len(set(alls)) < len(alls):
@@ -455,12 +535,21 @@ def main():
         if x not in maps:
             log(f"Skipping {x['name']}: no competitive data")
     map_ids = [x["id"] for x in maps]
+    if len(map_ids) < 5:
+        die(f"only {len(map_ids)} maps have competitive data (season just reset?)")
     ALL = ["all-maps"] + map_ids
+    # the map filter must actually be applied: per-map pages identical to the all-maps page mean it was ignored
+    for s, _, _, _ in SERVERS:
+        for r in RANKS + ["all"]:
+            base = json.dumps(raw[s][r]["all-maps"], sort_keys=True)
+            same = sum(1 for m in map_ids if raw[s][r][m] and json.dumps(raw[s][r][m], sort_keys=True) == base)
+            if same > len(map_ids) / 2:
+                die(f"{s} {r}: {same} of {len(map_ids)} map pages equal the all-maps page (map filter ignored)")
 
     # ---- change detection
     def canon(s):
         return {r: {m: {h: raw[s][r][m].get(h) for h in hero_ids} for m in ALL} for r in RANKS + ["all"]}
-    hashes = {s: hashlib.sha256(json.dumps(canon(s), sort_keys=True).encode()).hexdigest()[:16]
+    hashes = {s: hashlib.sha256((MODEL_VERSION + json.dumps(canon(s), sort_keys=True)).encode()).hexdigest()[:16]
               for s, _, _, _ in SERVERS}
     prev_index = load_json(os.path.join(args.out, "index.json"), {}) or {}
     prev_hashes = {x["id"]: x.get("hash") for x in prev_index.get("servers", [])}
@@ -470,8 +559,11 @@ def main():
         return
 
     # ---- match counts per server x rank x map
-    nraw = {s: {r: {m: est_n([(raw[s][r][m].get(h) or [0, 0, 0])[2] for h in hero_ids]) for m in map_ids}
-                for r in RANKS} for s, _, _, _ in SERVERS}
+    def n_of(rows):
+        if not any(rows.get(h) for h in hero_ids):
+            return 0                                   # no data at all: no matches (not "too many to resolve")
+        return est_n([(rows.get(h) or [0, 0, 0])[2] for h in hero_ids])
+    nraw = {s: {r: {m: n_of(raw[s][r][m]) for m in map_ids} for r in RANKS} for s, _, _, _ in SERVERS}
     shares = {s: rank_shares(raw[s]["all"]["all-maps"], {r: raw[s][r]["all-maps"] for r in RANKS}, hero_ids)
               for s, _, _, _ in SERVERS}
     for s, label, _, _ in SERVERS:
@@ -486,10 +578,12 @@ def main():
         sh = shares[s]
         N[s] = {"grandmaster": gm[s],
                 "master": impute_regress(nraw[s]["master"], gm[s], sh["master"] / max(sh["grandmaster"], 1e-6))}
+        gm_nz = sorted(v for v in gm[s].values() if v > 0)
+        gm_ref = {m: (gm[s][m] if gm[s][m] > 0 else (gm_nz[len(gm_nz) // 2] if gm_nz else 800)) for m in map_ids}
         for r in RANKS[:6]:
             scale = sh[r] / max(sh["grandmaster"], 1e-6)
             N[s][r] = {m: (nraw[s][r][m] if nraw[s][r][m] is not None and nraw[s][r][m] < RELIABLE
-                           else int(max(800, round(gm[s][m] * scale)))) for m in map_ids}
+                           else int(max(800, round(gm_ref[m] * scale)))) for m in map_ids}
         # the six lower ranks: keep each map's total, but split it by that map's own rank mix (solved from the
         # official all-ranks numbers of the map) instead of the all-maps mix
         low = RANKS[:6]
@@ -498,7 +592,7 @@ def main():
             tot_low, w_low = sum(N[s][r][m] for r in low), sum(sm[r] for r in low)
             if w_low > 0.2:
                 for r in low:
-                    N[s][r][m] = max(1, int(round(tot_low * sm[r] / w_low)))
+                    N[s][r][m] = 0 if nraw[s][r][m] == 0 else max(1, int(round(tot_low * sm[r] / w_low)))
         for r in RANKS:
             N[s][r]["all-maps"] = sum(N[s][r][m] for m in map_ids)
 
@@ -509,6 +603,9 @@ def main():
             ns = [N[s][r][m] for r in ranks]
             NP[m] = sum(ns)
             KR[m] = {}
+            if NP[m] <= 0:
+                KR[m] = {h: {"pr": 0.0, "br": 0.0, "wr": None, "miss": True} for h in hero_ids}
+                continue
             for h in hero_ids:
                 cs = [cell(raw[s][r][m], h) for r in ranks]
                 gs = [(n * c["pr"], c["wr"]) for n, c in zip(ns, cs) if c["wr"] is not None]
@@ -562,11 +659,13 @@ def main():
         return clampk((100 - b) / (b * KW[gid]["t_br"] ** 2))
 
     # ---- map-effect priors per bracket: pooled Asia + Americas + Europe of the same bracket
-    PRIOR, EFF, CONST = {}, {}, {}
+    PRIOR, EFF = {}, {}
     for gid, _, _, _ in GROUPS:
         NG = {m: sum(MERGED[(s, gid)][0][m] for s in PRIOR_SERVERS) for m in ALL}
 
         def pooled(m, h):
+            if NG[m] <= 0:
+                return 0.0, 0.0, None
             cs = {s: MERGED[(s, gid)][1][m][h] for s in PRIOR_SERVERS}
             ws = {s: MERGED[(s, gid)][0][m] for s in PRIOR_SERVERS}
             pr = sum(ws[s] * cs[s]["pr"] for s in PRIOR_SERVERS) / NG[m]
@@ -592,20 +691,6 @@ def main():
                 GA[m][h] = {"pr": pra, "br": bra, "wr": wra}
                 eff[m][h] = {"pr": pra / max(P["pr"], 0.05), "wr": wra - P["wr"], "br": (bra + 1) / (P["br"] + 1)}
         PRIOR[gid], EFF[gid] = GA, eff
-        CONST[gid] = {}
-        for role in ROLE_ORDER:
-            xs = []
-            for m in map_ids:
-                for h in hero_ids:
-                    if role_of[h] != role:
-                        continue
-                    c = GA[m][h]
-                    prav = max(0.1, c["pr"]) / max(0.3, 1 - c["br"] / 100)
-                    xs.append((mirror(c["wr"], c["pr"]) - 50, math.log(prav), math.log(1 + max(0.0, c["br"]))))
-            cols = list(zip(*xs))
-            CONST[gid][role] = {"wr_sd": round(st.pstdev(cols[0]), 3), "pr_mu": round(st.mean(cols[1]), 4),
-                                "pr_sd": round(st.pstdev(cols[1]), 3), "br_mu": round(st.mean(cols[2]), 3),
-                                "br_sd": round(st.pstdev(cols[2]), 3)}
 
     def smooth(s, gid):
         NP, KR = MERGED[(s, gid)]
@@ -631,18 +716,15 @@ def main():
                 SM[m][h]["wr"] = mirror(SM[m][h]["wr"], SM[m][h]["pr"])
         return SM
 
-    def meta_index(SM, gid):
-        """Default-weight (50/30/20) meta index, the same formula the page uses."""
-        out = {m: {} for m in ALL}
-        for role in ROLE_ORDER:
-            hs = [h for h in hero_ids if role_of[h] == role]
-            C = CONST[gid][role]
-            comp = {(m, h): sum(w * x for w, x in zip((0.5, 0.3, 0.2), comps(SM[m][h], C))) for m in ALL for h in hs}
-            pool = [comp[(m, h)] for m in map_ids for h in hs]
-            mu, sd = st.mean(pool), st.pstdev(pool) or 1
-            for (m, h), v in comp.items():
-                out[m][h] = round(50 + 10 * (v - mu) / sd)
-        return out
+    def consts_smoothed(SM):
+        return {role: consts_of([(SM[m][h]["wr"], SM[m][h]["pr"], SM[m][h]["br"]) for m in map_ids for h in hero_ids
+                                 if role_of[h] == role and not SM[m][h]["raw"]["miss"]]) for role in ROLE_ORDER}
+
+    def consts_raw(KR):
+        return {role: consts_of([(mirror(KR[m][h]["wr"], KR[m][h]["pr"]), KR[m][h]["pr"], KR[m][h]["br"])
+                                 for m in map_ids for h in hero_ids
+                                 if role_of[h] == role and not KR[m][h]["miss"] and KR[m][h]["wr"] is not None])
+                for role in ROLE_ORDER}
 
     # ---- export
     now = datetime.now(KST)
@@ -655,9 +737,9 @@ def main():
 
     heroes_out = []
     for h in hero_ids:
-        img = (meta_bz.get(h) or {}).get("img") or meta_kr[h].get("img") or ""
-        heroes_out.append({"id": h, "name": meta_kr[h]["name"], "role": role_of[h],
-                           "sub": sub_names.get(meta_kr[h].get("sub"), meta_kr[h].get("sub") or ""), "img": img})
+        img = (meta_bz.get(h) or {}).get("img") or (meta_kr.get(h) or {}).get("img") or ""
+        heroes_out.append({"id": h, "name": meta_all[h]["name"], "role": role_of[h],
+                           "sub": sub_names.get(meta_all[h].get("sub"), meta_all[h].get("sub") or ""), "img": img})
     roles_out = {role: {"label": ROLE_LABEL[role],
                         "avg": round(ROLE_PICK_SUM[role] / sum(1 for h in hero_ids if role_of[h] == role), 3)}
                  for role in sorted(ROLE_ORDER, key=ROLE_ORDER.get)}
@@ -671,44 +753,59 @@ def main():
         snaps = hist.get("snapshots") or []
         brackets, mi_now, totals = [], {}, {}
         for gid, glabel, granks, _ in GROUPS:
-            NP = MERGED[(s, gid)][0]
+            NP, KR = MERGED[(s, gid)]
             SM = smooth(s, gid)
-            mi = meta_index(SM, gid)
-            mi_now[gid] = {m: [mi[m][h] for h in hero_ids] for m in ALL}
+            C_sm, C_raw = consts_smoothed(SM), consts_raw(KR)
+            cells = {m: [[r1(SM[m][h]["pr"]), r1(SM[m][h]["wr"]), r1(SM[m][h]["br"]),
+                          r1(SM[m][h]["raw"]["pr"]), r1(SM[m][h]["raw"]["wr"]), r1(SM[m][h]["raw"]["br"]),
+                          round(SM[m][h]["g"]), 1 if SM[m][h]["raw"]["miss"] else 0] for h in hero_ids] for m in ALL}
+            hero_roles = [{"role": role_of[h]} for h in hero_ids]
+            mi0 = mi_cells(hero_roles, map_ids, cells, C_sm)
+            mi_now[gid] = mi0
             totals[gid] = int(NP["all-maps"])
             brackets.append({
-                "id": gid, "label": glabel, "ranks": granks, "c": CONST[gid],
+                "id": gid, "label": glabel, "ranks": granks, "c": C_sm, "cr": C_raw,
                 "k": {"wr": round(KW[gid]["wr"]), "t_wr": round(KW[gid]["t_wr"], 2),
                       "pr5": round(k_pr(gid, 5)), "pr20": round(k_pr(gid, 20)), "br5": round(k_br(gid, 5))},
                 "N": {m: int(round(NP[m])) for m in ALL},
-                "cells": {m: [[r1(SM[m][h]["pr"]), r1(SM[m][h]["wr"]), r1(SM[m][h]["br"]),
-                               r1(SM[m][h]["raw"]["pr"]), r1(SM[m][h]["raw"]["wr"]), r1(SM[m][h]["raw"]["br"]),
-                               round(SM[m][h]["g"]), 1 if SM[m][h]["raw"]["miss"] else 0] for h in hero_ids] for m in ALL},
+                "cells": cells, "mi0": mi0,
             })
+            mi = {m: dict(zip(hero_ids, mi0[m])) for m in ALL}
             parts = []
             for role in sorted(ROLE_ORDER, key=ROLE_ORDER.get):
-                top = [meta_kr[h]["name"] for h in sorted((h for h in hero_ids if role_of[h] == role),
-                                                         key=lambda h: -mi["all-maps"][h]) if tier(mi["all-maps"][h]) == "S"]
+                top = [meta_all[h]["name"] for h in sorted((h for h in hero_ids if role_of[h] == role),
+                                                          key=lambda h: -mi["all-maps"][h]) if tier(mi["all-maps"][h]) == "S"]
                 parts.append(f"{ROLE_LABEL[role]} S: {', '.join(top) or '없음'}")
             summaries.append(f"SUMMARY {label} {glabel}: 추정 {totals[gid]:,}경기 | " + " | ".join(parts))
 
         changed = not snaps or snaps[-1].get("hash") != hashes[s]
         prev = snaps[-1] if snaps else None
+        cur_total = sum(totals.values())
         if changed and prev:
             prev_total = sum(prev.get("totals", {}).values())
-            if prev_total and sum(totals.values()) < PATCH_DROP * prev_total:
+            if prev_total and cur_total < PATCH_DROP * prev_total:
                 hist["patchStart"] = now_s          # stats were reset: a new patch began
                 hist["lastPatchTotals"] = prev.get("totals")
+                hist["patchBase"] = prev
+            elif hist.get("patchStart") and hist.get("lastPatchTotals"):
+                # a reset cannot recover to the old match count within two days: that was a glitch
+                age = now - datetime.fromisoformat(hist["patchStart"])
+                if age < timedelta(days=2) and cur_total >= 0.9 * sum(hist["lastPatchTotals"].values()):
+                    log(f"{label}: earlier patch detection undone (match counts recovered)")
+                    for k in ("patchStart", "lastPatchTotals", "patchBase"):
+                        hist.pop(k, None)
         if changed:
             snaps.append({"at": now_s, "hash": hashes[s], "totals": totals, "heroes": hero_ids, "mi": mi_now})
             hist["snapshots"] = snaps[-HISTORY_KEEP:]
             write_json(hist_path, hist)
-        # comparison base: the previous distinct snapshot (the last one of the previous patch after a reset)
-        base = hist["snapshots"][-2] if len(hist["snapshots"]) >= 2 else None
+        # comparison base: for a week after a reset the last pre-reset snapshot, otherwise the previous snapshot
+        in_patch_window = bool(hist.get("patchBase") and hist.get("patchStart")
+                               and now - datetime.fromisoformat(hist["patchStart"]) < timedelta(days=PATCH_COMPARE_DAYS))
+        base = hist["patchBase"] if in_patch_window else (hist["snapshots"][-2] if len(hist["snapshots"]) >= 2 else None)
         compare = None
         if base:
             compare = {"at": base["at"], "heroes": base.get("heroes", []),
-                       "patch": bool(hist.get("patchStart") and base["at"] < hist["patchStart"]),
+                       "patch": in_patch_window,
                        "mi": {g: {"all-maps": v.get("all-maps"), **{m: v.get(m) for m in map_ids if m in v}}
                               for g, v in base.get("mi", {}).items()}}
         last_patch = hist.get("lastPatchTotals") or {}
