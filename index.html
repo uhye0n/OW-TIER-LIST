@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>오버워치 한국 메타 티어</title>
+<title>오버워치 티어 리스트</title>
 <meta name="description" content="넥슨 오버워치 영웅 통계로 계산한 한국 경쟁전 하위·중위·상위 구간 맵별 영웅 메타 티어">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -198,17 +198,19 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
 .ctable th{font-weight:700;color:var(--muted);border-bottom:2px solid var(--ink)}
 .ctable th:first-child,.ctable td:first-child{text-align:left}
 .segs{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
-.seg-b button{display:inline-flex;flex-direction:column;align-items:center;line-height:1.15;padding:6px 14px}
-.seg-b button .rk{font-size:11px;font-weight:500;opacity:.72;margin-top:2px}
+.seg-b button{display:inline-flex;flex-direction:column;align-items:center;gap:3px;line-height:1.15;padding:6px 12px}
+.seg-b button .rk{display:flex;align-items:center;gap:2px}
+.seg-b button .rk img{width:26px;height:26px;object-fit:contain;display:block;filter:saturate(.55) opacity(.7)}
+.seg-b button[aria-pressed="true"] .rk img,.seg-b button:hover .rk img{filter:none}
 @media (max-width: 900px){ .segs{justify-content:flex-start} }
-@media (max-width: 560px){ .segs{width:100%} .seg-b{display:grid;grid-template-columns:repeat(3,1fr);width:100%} .seg-b button{padding:6px 4px;white-space:normal} .seg-b button .rk{font-size:10px} }
+@media (max-width: 560px){ .segs{width:100%} .seg-b{display:grid;grid-template-columns:repeat(3,1fr);width:100%} .seg-b button{padding:6px 4px;white-space:normal} .seg-b button .rk img{width:22px;height:22px} }
 </style>
 </head>
 <body>
 <div class="page">
   <header class="top">
     <div>
-      <h1>오버워치 한국 맵별 메타 티어</h1>
+      <h1>오버워치 티어 리스트</h1>
       <p class="scope">넥슨 오버워치 영웅 통계의 한국 경쟁전 역할 고정 PC 데이터를 하위(브론즈·실버·골드), 중위(플래티넘·에메랄드·다이아몬드), 상위(마스터·그랜드마스터·챔피언) 세 구간으로 묶어, 맵마다 픽률, 승률, 밴률을 하나의 메타 지수로 계산하고 역할별로 S부터 D까지 나눴습니다.</p>
       <p class="fresh"><span class="live" aria-hidden="true"></span><span id="freshText"></span></p>
     </div>
@@ -311,7 +313,12 @@ const DATA = /*OWDATA:BEGIN*/{"meta":{"collectedAt":"2026-09-27T11:00+09:00","ra
   const MAP_IDS = MAPS.map(m => m.id);
   const ALL_IDS = ['all-maps'].concat(MAP_IDS);
   const MODES = (D.modes && D.modes.length) ? D.modes : Array.from(new Set(MAPS.map(m => m.mode)));
-  const ROLES = [['damage','공격'],['tank','돌격'],['support','지원']];
+  const RANK_ICONS = {
+    low: [['bronze','브론즈'],['silver','실버'],['gold','골드']],
+    mid: [['platinum','플래티넘'],['emerald','에메랄드'],['diamond','다이아몬드']],
+    high: [['master','마스터'],['grandmaster','그랜드마스터'],['champion','챔피언']]
+  };
+  const ROLES = [['tank','돌격'],['damage','공격'],['support','지원']];
   const DEFAULT_W = {wr:50, pr:30, br:20};
   const MAP_BY_ID = Object.fromEntries(MAPS.map(m => [m.id, m]));
   const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -322,7 +329,7 @@ const DATA = /*OWDATA:BEGIN*/{"meta":{"collectedAt":"2026-09-27T11:00+09:00","ra
   };
 
   const BRS = D.brackets;
-  const state = {bracket:(BRS.find(x => x.id === 'high') || BRS[0]).id, role:'damage', map:'all-maps', focus:null, w:Object.assign({}, DEFAULT_W), smooth:true, sort:{key:'mi', dir:-1}};
+  const state = {bracket:(BRS.find(x => x.id === 'high') || BRS[0]).id, role:'tank', map:'all-maps', focus:null, w:Object.assign({}, DEFAULT_W), smooth:true, sort:{key:'mi', dir:-1}};
   const saved = store.get('state');
   if (saved) {
     if (saved.bracket && BRS.some(x => x.id === saved.bracket)) state.bracket = saved.bracket;
@@ -385,7 +392,7 @@ const DATA = /*OWDATA:BEGIN*/{"meta":{"collectedAt":"2026-09-27T11:00+09:00","ra
     const order = ['low', 'mid', 'high'];
     const brs = BRS.slice().sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
     document.getElementById('segB').innerHTML = brs.map(x =>
-      `<button type="button" data-bracket="${x.id}" aria-pressed="${state.bracket === x.id}" title="${esc(x.ranks)}">${esc(x.label)}<span class="rk">${esc(x.ranks.replace(/·/g, ' '))}</span></button>`).join('');
+      `<button type="button" data-bracket="${x.id}" aria-pressed="${state.bracket === x.id}" title="${esc(x.label)}: ${esc(x.ranks)}"><span class="bl">${esc(x.label)}</span><span class="rk">${(RANK_ICONS[x.id] || []).map(([f, n]) => `<img src="assets/ranks/${f}.png" alt="${n}" width="26" height="26" loading="lazy">`).join('')}</span></button>`).join('');
     document.getElementById('seg').innerHTML = ROLES.map(([k, label]) =>
       `<button type="button" data-role="${k}" aria-pressed="${state.role === k}">${label}</button>`).join('');
     document.getElementById('smooth').checked = state.smooth;
