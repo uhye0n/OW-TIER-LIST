@@ -253,6 +253,9 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
 .patch-note{margin:8px 0 0;padding:8px 12px;border-left:3px solid var(--t-a);background:var(--panel);font-size:13.5px;max-width:78ch}
 .ctable caption{text-align:left;font-size:12.5px;color:var(--muted);padding-bottom:4px}
 .detail .muted{color:var(--faint)}
+.chip.thin{opacity:.55}
+.chip.thin.on{opacity:1}
+.edge{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:600;color:var(--muted);border:1px solid var(--line);padding:0 4px;vertical-align:1px}
 [aria-busy="true"]{opacity:.55}
 
 /* header when the controls wrap under the title */
@@ -277,9 +280,7 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
 }
 
 /* view tabs */
-body[data-view="home"] #seg,body[data-view="home"] #segB,body[data-view="home"] .row2{display:none}
 body:not([data-view="home"]) #homeView,body:not([data-view="detail"]) #detailView,body:not([data-view="method"]) #methodView{display:none}
-body[data-view="method"] #seg,body[data-view="method"] .row2{display:none}
 .fresh-box{margin:8px 0 6px;overflow-x:auto}
 .fresh-table{border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
 .fresh-table caption{text-align:left;font-size:12.5px;color:var(--muted);padding-bottom:4px}
@@ -292,7 +293,12 @@ body[data-view="method"] #seg,body[data-view="method"] .row2{display:none}
 .crumb .back{border:1px solid var(--line);background:var(--panel);padding:7px 13px;font-weight:700;font-size:14px;cursor:pointer;color:var(--ink)}
 .crumb .back:hover{background:var(--hl)}
 .crumb span{font-weight:600}
-.crumb + .layout,.crumb + .panel{margin-top:14px}
+.crumb + .panel{margin-top:14px}
+body[data-view="method"] .top .controls{visibility:hidden}
+.dtools{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:12px;padding:10px 0 14px;border-bottom:1px solid var(--line)}
+.dtools .segs,.dtools .row2{justify-content:flex-start}
+.dtools .wbody{left:0;right:auto}
+.dtools + .layout{margin-top:16px}
 .seg-b button .rk.mini img{width:17px;height:17px}
 
 /* landing */
@@ -409,23 +415,6 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     </div>
     <div class="controls">
       <div class="segs"><div class="seg" role="group" aria-label="서버" id="segS"></div></div>
-      <div class="segs"><div class="seg seg-b" role="group" aria-label="구간" id="segB"></div><div class="seg" role="group" aria-label="역할" id="seg"></div></div>
-      <div class="row2">
-        <label class="toggle" title="표본이 적은 맵의 수치를 영웅의 서버 전체 성적과 해외 같은 구간의 맵 경향 쪽으로 보정"><input type="checkbox" id="smooth"> 표본 보정</label>
-        <details class="weights" id="weights">
-          <summary><span class="wt">지수 가중치</span><span class="wl" id="wlabel"></span></summary>
-          <div class="wbody">
-            <p>손잡이 두 개로 100을 승률·픽률·밴률에 나눠 줍니다.</p>
-            <div class="wsplit" id="wsplit">
-              <div class="wtrack" id="wtrack" aria-hidden="true"></div>
-              <input type="range" min="0" max="100" step="5" id="w-a" aria-label="승률과 픽률의 경계">
-              <input type="range" min="0" max="100" step="5" id="w-b" aria-label="픽률과 밴률의 경계">
-            </div>
-            <div class="wvals"><span class="c-wr">승률 <b id="o-wr"></b></span><span class="c-pr">픽률 <b id="o-pr"></b></span><span class="c-br">밴률 <b id="o-br"></b></span></div>
-            <button type="button" id="wreset">기본값(50 / 30 / 20)으로 되돌리기</button>
-          </div>
-        </details>
-      </div>
     </div>
   </header>
 
@@ -443,6 +432,25 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 
   <div id="detailView">
   <div class="crumb"><button type="button" class="back" data-view="home">← 한눈에 보기</button><span>맵·영웅 상세</span></div>
+  <div class="dtools">
+      <div class="segs"><div class="seg seg-b" role="group" aria-label="구간" id="segB"></div><div class="seg" role="group" aria-label="역할" id="seg"></div></div>
+      <div class="row2">
+        <label class="toggle" title="표본이 적은 맵의 수치를 영웅의 서버 전체 성적과 해외 같은 구간의 맵 경향 쪽으로 보정"><input type="checkbox" id="smooth"> 표본 보정</label>
+        <details class="weights" id="weights">
+          <summary><span class="wt">지수 가중치</span><span class="wl" id="wlabel"></span></summary>
+          <div class="wbody">
+            <p>손잡이 두 개로 100을 승률·픽률·밴률에 나눠 줍니다.</p>
+            <div class="wsplit" id="wsplit">
+              <div class="wtrack" id="wtrack" aria-hidden="true"></div>
+              <input type="range" min="0" max="100" step="5" id="w-a" aria-label="승률과 픽률의 경계">
+              <input type="range" min="0" max="100" step="5" id="w-b" aria-label="픽률과 밴률의 경계">
+            </div>
+            <div class="wvals"><span class="c-wr">승률 <b id="o-wr"></b></span><span class="c-pr">픽률 <b id="o-pr"></b></span><span class="c-br">밴률 <b id="o-br"></b></span></div>
+            <button type="button" id="wreset">기본값(50 / 30 / 20)으로 되돌리기</button>
+          </div>
+        </details>
+      </div>
+  </div>
   <div class="layout">
     <nav class="rail" aria-label="맵 선택" id="rail"></nav>
     <main>
@@ -500,13 +508,15 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         <h4>메타 지수</h4>
         <div class="formula">
           종합 = 승률 50% + 픽률 30% + 밴률 20% (기본값)<br>
-          승률 점수 = (승률 − 50) ÷ σ<br>
+          승률 점수 = (미러전 제외 승률 − 50) ÷ σ<br>
+          미러전 제외 승률 = 50 + (승률 − 50) ÷ (1 − 픽률)<br>
           픽률 점수 = (ln(픽률 ÷ (1 − 밴률)) − μ) ÷ σ<br>
           밴률 점수 = (ln(1 + 밴률) − μ) ÷ σ
         </div>
         <ul class="m-list">
           <li>μ·σ는 구간·역할마다 해외 세 서버 합산 분포로 정합니다.</li>
           <li>종합 점수는 구간·역할 안의 모든 맵·영웅 기준 평균 50, 표준편차 10으로 바꿉니다.</li>
+          <li>미러전(양 팀이 같은 영웅)은 한 번 이기고 한 번 지는 판이라 인기 영웅의 승률을 50% 쪽으로 누르므로 걷어냅니다.</li>
           <li>같은 구간·역할 안에서만 비교하세요.</li>
         </ul>
         <div class="table-wrap"><table class="ctable" id="ctable"></table></div>
@@ -518,7 +528,8 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         <ul class="m-list">
           <li>한국: 넥슨 영웅 통계 / 아시아·아메리카·유럽: 블리자드 영웅 통계</li>
           <li>경쟁전 역할 고정, PC, 8개 등급 × 전체 맵·맵별</li>
-          <li>구간은 등급 합산: 하위(브론즈~골드), 중위(플래티넘~다이아), 상위(마스터 이상), 전체(모든 등급)</li>
+          <li>전체 구간은 공식 "전체 티어" 수치를 그대로 사용</li>
+          <li>하위(브론즈~골드)·중위(플래티넘~다이아)·상위(마스터 이상)는 소속 등급을 맵마다 합산</li>
           <li>픽률·밴률은 경기 수로, 승률은 플레이된 판 수로 가중 평균</li>
         </ul>
       </div>
@@ -528,14 +539,14 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
           <li>공식 통계는 경기 수를 공개하지 않아 추정합니다.</li>
           <li>그랜드마스터: 밴률의 0.1% 단위 표시로 역산</li>
           <li>마스터: 그랜드마스터와의 로그 회귀</li>
-          <li>브론즈~다이아: 전체 등급 수치로 등급 비중을 풀어 환산(오차 10~25%)</li>
-          <li>표본 신뢰도: 600경기 이상 높음, 150~599 보통, 150 미만 낮음</li>
+          <li>브론즈~다이아: 공식 전체 티어 수치로 맵마다 등급 비중을 풀어 환산</li>
+          <li>영웅 신뢰도(그 맵에서 플레이된 판 수): 400판 이상 높음, 100~399 보통, 100 미만 낮음(티어표에서 흐리게)</li>
         </ul>
         <h4>표본 보정</h4>
         <ul class="m-list">
           <li>경기가 적은 맵의 수치를 사전값 쪽으로 당깁니다.</li>
           <li>사전값 = 그 영웅의 서버 전체 맵 성적 × 해외 같은 구간의 맵 경향</li>
-          <li>무게: 픽률·밴률 40경기, 승률 80판</li>
+          <li>무게는 갱신마다 데이터에서 추정합니다(맵 사이 실제 차이가 작을수록 크게): <span id="kInfo"></span></li>
           <li>상세 화면에서 끄면 원본 수치로 계산</li>
         </ul>
       </div>
@@ -545,13 +556,15 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
           <li><b>맵 카드</b>: 그 맵의 역할별 지수 상위 돌격 1·공격 2·지원 2 (역할마다 따로 뽑은 것이라 실제 함께 쓰인 조합은 아님)</li>
           <li><b>★</b>: 전체 맵 종합에서는 상위(돌격 1위, 공격·지원 2위 안)가 아니지만 이 맵에서는 상위에 든 영웅</li>
           <li><b>▲▼</b>: 직전 기록 대비 티어 변동(기본 가중치·보정 기준)</li>
+          <li><b>경계</b>: 티어 경계에서 1점 안쪽이라 가중치에 따라 한 칸 바뀔 수 있는 영웅</li>
           <li><b>영웅 추이</b>: 하루 한 번 저장한 전체 맵 기록(지수는 기본 가중치·보정, 픽률·승률·밴률은 원본)</li>
           <li><b>패치 감지</b>: 경기 수가 직전의 70% 아래로 떨어지면 새 패치로 보고 지난 패치 마지막 기록과 비교</li>
         </ul>
         <h4>주의할 점</h4>
         <ul class="m-list muted">
           <li>돌격 픽률 합은 100%, 공격·지원은 200%</li>
-          <li>픽률이 아주 높은 영웅은 승률이 50% 근처로 모이기 쉬움</li>
+          <li>미러전 보정은 두 팀이 서로 독립적으로 영웅을 고른다는 가정의 근사</li>
+          <li>공식 밴률의 분모, 경기를 어느 등급으로 집계하는지는 공개되지 않아 추정에 가정이 들어감</li>
           <li>밴률에는 성능 외에 상대하기 싫은 정도도 섞임</li>
           <li>패치 직후에는 표본이 작아 보정 비중이 큼</li>
         </ul>
@@ -605,7 +618,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   const fmtInt = n => Math.round(n).toLocaleString('ko-KR');
   const relOf = n => n >= 600 ? ['r-hi','높음'] : n >= 150 ? ['r-mid','보통'] : ['r-lo','낮음'];
   const roleIdx = () => H.map((h, i) => i).filter(i => H[i].role === state.role);
-  const curB = () => (state.view === 'home' && BRS.some(x => x.id === 'all')) ? 'all' : state.bracket;
+  const curB = () => (state.view !== 'detail' && BRS.some(x => x.id === 'all')) ? 'all' : state.bracket;
   const BK = () => BRS.find(x => x.id === curB()) || BRS[0];
   const srcName = () => SOURCE_NAME[(INDEX && (INDEX.servers.find(s => s.id === state.server) || {}).source)] || '공식';
   const portrait = (i, cls) => H[i].img ? `<img class="${cls}" src="${esc(H[i].img)}" alt="" width="28" height="28" loading="lazy" decoding="async" onerror="this.remove()">` : '';
@@ -633,11 +646,15 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     state.focus = focusId ? (H.findIndex(h => h.id === focusId) >= 0 ? H.findIndex(h => h.id === focusId) : null) : null;
   }
 
+  // win rate without mirror matches (both teams on the hero = one win + one loss): 50 + (wr - 50) / (1 - p)
+  const mirror = (wr, pr) => 50 + (wr - 50) / (1 - Math.min(Math.max(pr, 0) / 100, 0.9));
   function vals(cell, smooth){
     if (smooth) return {pr:cell[0], wr:cell[1], br:cell[2], miss:!!cell[7]};
     if (cell[7]) return {pr:0, wr:50, br:0, miss:true};
-    return {pr:cell[3], wr:(cell[4] == null ? 50 : cell[4]), br:cell[5], miss:false};
+    return {pr:cell[3], wr:(cell[4] == null ? 50 : mirror(cell[4], cell[3])), br:cell[5], miss:false};
   }
+  const relHero = g => g >= 400 ? '높음' : g >= 100 ? '보통' : '낮음';
+  const nearEdge = x => [62, 55, 46, 40].some(t => Math.abs(x - (t - 0.5)) < 1.5);
   const consts = role => (BK().c && BK().c[role]) || (D.roles[role] && D.roles[role].c);
   function comps(v, C){
     const prav = Math.max(0.1, v.pr) / Math.max(0.3, 1 - v.br / 100);
@@ -878,7 +895,9 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       const chips = hs.length ? hs.map(i => {
         const mv = move(state.map, i);
         const mark = mv && mv.dir === 'up' ? `<span class="mv up" title="${PREV.label} ${mv.from} → ${mv.to}">▲</span>` : mv && mv.dir === 'down' ? `<span class="mv down" title="${PREV.label} ${mv.from} → ${mv.to}">▼</span>` : '';
-        return `<button type="button" class="chip${state.focus === i ? ' on' : ''}" data-hero="${i}" aria-pressed="${state.focus === i}">${portrait(i, 'pt')}<span class="nm">${esc(H[i].name)}</span><span class="sc">${Math.round(mi[i])}</span>${mark}</button>`;
+        const g = BK().cells[state.map][i][6];
+        const thin = g != null && g < 100;
+        return `<button type="button" class="chip${state.focus === i ? ' on' : ''}${thin ? ' thin' : ''}" data-hero="${i}" aria-pressed="${state.focus === i}"${thin ? ` title="표본 적음(약 ${fmtInt(g)}판)"` : ''}>${portrait(i, 'pt')}<span class="nm">${esc(H[i].name)}</span><span class="sc">${Math.round(mi[i])}</span>${mark}</button>`;
       }).join('') : `<span class="none">해당 영웅 없음</span>`;
       html += `<div class="tier-row t-${t}"><div class="tier-label" aria-label="${t} 티어">${t}</div><div class="tier-chips">${chips}</div></div>`;
     }
@@ -1073,7 +1092,6 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       return `<th scope="col"${sorted ? ` aria-sort="${state.sort.dir < 0 ? 'descending' : 'ascending'}"` : ''}><button type="button" data-sort="${k}">${label}${arrow}</button></th>`;
     }).join('') + '</tr></thead><tbody>';
     const rawNote = (adj, raw, missing) => {
-      if (!state.smooth) return '';
       if (missing) return '<span class="raw">원본 없음</span>';
       if (raw == null) return '';
       return Math.abs(adj - raw) >= 0.1 ? `<span class="raw">원본 ${raw.toFixed(1)}</span>` : '';
@@ -1083,7 +1101,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       const dl = Math.round(r.delta);
       h += `<tr data-hero="${r.i}" class="${state.focus === r.i ? 'focus' : ''}">`;
       h += `<td><div class="who">${portrait(r.i, 'pt')}<div><strong>${esc(H[r.i].name)}</strong><span class="sub">${esc(H[r.i].sub)}</span></div></div></td>`;
-      h += `<td class="mi"><span class="badge t-${t}">${t}</span>${Math.round(r.mi)}</td>`;
+      h += `<td class="mi"><span class="badge t-${t}">${t}</span>${Math.round(r.mi)}${nearEdge(r.mi) ? '<span class="edge" title="티어 경계에서 1점 안쪽이라 가중치에 따라 한 칸 바뀔 수 있습니다">경계</span>' : ''}</td>`;
       if (PREV) {
         const mv = r.mv;
         let txt = '—';
@@ -1098,14 +1116,14 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       h += `<td>${pct(r.v.pr)}${rawNote(r.v.pr, r.cell[3], miss)}</td>`;
       h += `<td>${miss && !state.smooth ? '—' : pct(r.v.wr)}${rawNote(r.v.wr, r.cell[4], miss)}</td>`;
       h += `<td>${pct(r.v.br)}${rawNote(r.v.br, r.cell[5], miss)}</td>`;
-      h += `<td>${miss ? '데이터 부족' : r.cell[6] < 1 ? '1판 미만' : '약 ' + fmtInt(r.cell[6]) + '판'}</td>`;
+      h += `<td>${miss ? '데이터 부족' : r.cell[6] < 1 ? '1판 미만' : '약 ' + fmtInt(r.cell[6]) + '판'}${miss ? '' : `<span class="raw">신뢰도 ${relHero(r.cell[6])}</span>`}</td>`;
       h += '</tr>';
     }
     h += '</tbody>';
     $('detail').innerHTML = h;
     $('tableHint').textContent = (state.smooth
-      ? `큰 숫자는 보정값, 작은 회색 숫자는 ${srcName()} 원본(구간 안의 등급을 합산한 값)입니다. `
-      : `표본 보정이 꺼져 있어 ${srcName()} 원본 수치로 계산했습니다. `)
+      ? `큰 숫자는 보정값(표본 보정, 승률은 미러전 제외), 작은 회색 숫자는 ${srcName()} 원본입니다. `
+      : `표본 보정이 꺼져 있어 ${srcName()} 원본으로 계산했습니다(승률만 미러전 제외, 회색은 원본). `)
       + (PREV ? `${PREV.label} 대비 열은 기본 가중치와 표본 보정 기준의 지수 변화입니다. ` : '')
       + '표본은 해당 영웅이 이 맵에서 플레이된 팀 기준 판 수 추정치입니다. 열 제목을 누르면 정렬됩니다.';
   }
@@ -1134,6 +1152,8 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 
   function renderConsts(){
     const f = (x, d) => x.toFixed(d);
+    const k = BK().k;
+    $('kInfo').textContent = k ? `지금 ${BK().label} 구간 기준 승률 약 ${fmtInt(k.wr)}판, 픽률은 픽률 5% 영웅 약 ${fmtInt(k.pr5)}경기·20% 영웅 약 ${fmtInt(k.pr20)}경기, 밴률 5% 영웅 약 ${fmtInt(k.br5)}경기` : '';
     let h = `<caption>현재 상수 (${esc(BK().label)} 구간)</caption><thead><tr><th>역할</th><th>σ승률</th><th>μ픽률</th><th>σ픽률</th><th>μ밴률</th><th>σ밴률</th></tr></thead><tbody>`;
     for (const [k, label] of ROLES) {
       const c = consts(k);

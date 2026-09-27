@@ -54,7 +54,8 @@ ROLE_PICK_SUM = {"tank": 100.0, "damage": 200.0, "support": 200.0}
 MODE_PREF = ["쟁탈", "호위", "혼합", "밀기", "플래시포인트"]
 SHORT_NAMES = {"antarctic-peninsula": "남극 반도", "shambali-monastery": "샴발리"}
 
-K_PR, K_BR, K_WR, K0 = 40, 40, 80, 80
+K0 = 80           # prior weight (games) for a hero's all-maps win rate
+K_BOUNDS = (5, 3000)  # clamp for the data-estimated prior weights
 CAP = 780          # ban-rate quantization cannot resolve match counts at or above this
 RELIABLE = 600     # below this the quantization estimate is taken as exact
 PATCH_DROP = 0.7   # total matches falling below this share of the previous run = stats were reset
@@ -242,7 +243,7 @@ def impute_regress(raw, ref, fallback_ratio):
     return out
 
 
-def rank_shares(mix, parts, hero_ids):
+def rank_shares(mix, parts, hero_ids, iters=5000):
     """Match share of each rank: the all-ranks pick and ban rates are a match-weighted
     average of the per-rank rates, so solve mix = sum_r w_r * part_r with w >= 0, sum w = 1."""
     keys = list(parts)
@@ -259,7 +260,7 @@ def rank_shares(mix, parts, hero_ids):
     H = [[sum(r[i] * r[j] for r in A) for j in range(n)] for i in range(n)]
     c = [sum(r[i] * y for r, y in zip(A, b)) for i in range(n)]
     w = [1.0 / n] * n
-    for _ in range(5000):
+    for _ in range(iters):
         for j in range(n):
             g = sum(H[j][k] * w[k] for k in range(n)) - c[j]
             w[j] = max(0.0, w[j] - g / H[j][j])
@@ -268,7 +269,19 @@ def rank_shares(mix, parts, hero_ids):
 
 
 # ---------------------------------------------------------------- model helpers
-def shr(wr, g, prior, k=K_WR):
+def mirror(wr, pr):
+    """Win rate outside mirror matches. When both teams field the hero the game counts as one win and one
+    loss, pulling the published rate toward 50; with per-team pick share p (independent picks) a share p of
+    the hero's games are mirrors, so the non-mirror rate is 50 + (wr - 50) / (1 - p)."""
+    p = min(max(pr, 0.0) / 100, 0.9)
+    return 50 + (wr - 50) / (1 - p)
+
+
+def clampk(k):
+    return min(K_BOUNDS[1], max(K_BOUNDS[0], k))
+
+
+def shr(wr, g, prior, k=K0):
     if wr is None or g <= 0:
         return prior
     return (g * wr + k * prior) / (g + k)
@@ -399,9 +412,8 @@ def main():
     sub_names = {x["value"]: x["name"] for x in filters.get("roles") or [] if x.get("parentValue")}
     all_maps = ["all-maps"] + [x["id"] for x in map_list]
 
-    # ---- scrape: every server x rank x map, plus the all-ranks mixture for all maps combined
-    jobs = [(s, r, m) for s, _, _, _ in SERVERS for r in RANKS for m in all_maps]
-    jobs += [(s, None, "all-maps") for s, _, _, _ in SERVERS]
+    # ---- scrape: every server x (8 ranks + all ranks) x (all maps + each map)
+    jobs = [(s, r, m) for s, _, _, _ in SERVERS for r in RANKS + [None] for m in all_maps]
     src = {s: (kind, reg) for s, _, kind, reg in SERVERS}
     log(f"Fetching {len(jobs)} stat pages...")
     raw = {s: {r: {} for r in RANKS + ["all"]} for s, _, _, _ in SERVERS}
@@ -447,8 +459,7 @@ def main():
 
     # ---- change detection
     def canon(s):
-        return {r: {m: {h: raw[s][r][m].get(h) for h in hero_ids} for m in (ALL if r != "all" else ["all-maps"])}
-                for r in RANKS + ["all"]}
+        return {r: {m: {h: raw[s][r][m].get(h) for h in hero_ids} for m in ALL} for r in RANKS + ["all"]}
     hashes = {s: hashlib.sha256(json.dumps(canon(s), sort_keys=True).encode()).hexdigest()[:16]
               for s, _, _, _ in SERVERS}
     prev_index = load_json(os.path.join(args.out, "index.json"), {}) or {}
@@ -479,6 +490,15 @@ def main():
             scale = sh[r] / max(sh["grandmaster"], 1e-6)
             N[s][r] = {m: (nraw[s][r][m] if nraw[s][r][m] is not None and nraw[s][r][m] < RELIABLE
                            else int(max(800, round(gm[s][m] * scale)))) for m in map_ids}
+        # the six lower ranks: keep each map's total, but split it by that map's own rank mix (solved from the
+        # official all-ranks numbers of the map) instead of the all-maps mix
+        low = RANKS[:6]
+        for m in map_ids:
+            sm = rank_shares(raw[s]["all"][m], {r: raw[s][r][m] for r in RANKS}, hero_ids, iters=2000)
+            tot_low, w_low = sum(N[s][r][m] for r in low), sum(sm[r] for r in low)
+            if w_low > 0.2:
+                for r in low:
+                    N[s][r][m] = max(1, int(round(tot_low * sm[r] / w_low)))
         for r in RANKS:
             N[s][r]["all-maps"] = sum(N[s][r][m] for m in map_ids)
 
@@ -500,6 +520,46 @@ def main():
         return NP, KR
 
     MERGED = {(s, gid): merge(s, ranks) for s, _, _, _ in SERVERS for gid, _, _, ranks in GROUPS}
+    # the all-ranks bracket uses the official all-ranks numbers directly (match counts still from the estimates)
+    for s, _, _, _ in SERVERS:
+        MERGED[(s, "all")] = (MERGED[(s, "all")][0], {m: {h: cell(raw[s]["all"][m], h) for h in hero_ids} for m in ALL})
+
+    # ---- prior weights estimated from the data, per bracket, pooled over all servers.
+    #      tau^2 = true map-to-map spread = observed spread around the hero's all-maps value - sampling noise.
+    #      Win rate: prior worth 2500 / tau^2 games. Pick / ban rate (relative spread): a hero with rate p gets
+    #      (100 - p) / (k * p * tau^2) matches, k = 2 for picks (two teams per match), 1 for bans.
+    KW = {}
+    for gid, _, _, _ in GROUPS:
+        ew = [0.0, 0.0]; ep = [0.0, 0.0]; eb = [0.0, 0.0]
+        for s, _, _, _ in SERVERS:
+            NP, KR = MERGED[(s, gid)]
+            for h in hero_ids:
+                a = KR["all-maps"][h]
+                for m in map_ids:
+                    c, n = KR[m][h], NP[m]
+                    if c["miss"] or a["miss"] or n <= 0:
+                        continue
+                    g = 2 * n * c["pr"] / 100
+                    if c["wr"] is not None and a["wr"] is not None and g >= 30:
+                        ew[0] += g * ((c["wr"] - a["wr"]) ** 2 - 2500 / g); ew[1] += g
+                    if a["pr"] >= 0.5:
+                        ep[0] += n * ((c["pr"] / a["pr"] - 1) ** 2 - (100 - a["pr"]) / (2 * n * a["pr"])); ep[1] += n
+                    if a["br"] >= 0.5:
+                        eb[0] += n * ((c["br"] / a["br"] - 1) ** 2 - (100 - a["br"]) / (n * a["br"])); eb[1] += n
+        t_wr = max(ew[0] / ew[1], 0.05) if ew[1] else 4.0
+        t_pr = max(ep[0] / ep[1], 0.001) if ep[1] else 0.08
+        t_br = max(eb[0] / eb[1], 0.001) if eb[1] else 0.15
+        KW[gid] = {"wr": clampk(2500 / t_wr), "t_wr": t_wr ** 0.5, "t_pr": t_pr ** 0.5, "t_br": t_br ** 0.5}
+        log(f"prior weights {gid}: win rate {KW[gid]['wr']:.0f} games (map spread {t_wr ** 0.5:.2f}%p), "
+            f"pick spread {t_pr ** 0.5:.2f}, ban spread {t_br ** 0.5:.2f}")
+
+    def k_pr(gid, p):
+        p = max(p, 0.3)
+        return clampk((100 - p) / (2 * p * KW[gid]["t_pr"] ** 2))
+
+    def k_br(gid, b):
+        b = max(b, 0.3)
+        return clampk((100 - b) / (b * KW[gid]["t_br"] ** 2))
 
     # ---- map-effect priors per bracket: pooled Asia + Americas + Europe of the same bracket
     PRIOR, EFF, CONST = {}, {}, {}
@@ -525,9 +585,10 @@ def main():
             for h in hero_ids:
                 pr, br, wr = pooled(m, h)
                 P = GA["all-maps"][h]
-                pra = (NG[m] * pr + K_PR * P["pr"]) / (NG[m] + K_PR)
-                bra = (NG[m] * br + K_BR * P["br"]) / (NG[m] + K_BR)
-                wra = shr(wr, 2 * NG[m] * pr / 100, P["wr"])
+                kp, kb = k_pr(gid, P["pr"]), k_br(gid, P["br"])
+                pra = (NG[m] * pr + kp * P["pr"]) / (NG[m] + kp)
+                bra = (NG[m] * br + kb * P["br"]) / (NG[m] + kb)
+                wra = shr(wr, 2 * NG[m] * pr / 100, P["wr"], KW[gid]["wr"])
                 GA[m][h] = {"pr": pra, "br": bra, "wr": wra}
                 eff[m][h] = {"pr": pra / max(P["pr"], 0.05), "wr": wra - P["wr"], "br": (bra + 1) / (P["br"] + 1)}
         PRIOR[gid], EFF[gid] = GA, eff
@@ -540,7 +601,7 @@ def main():
                         continue
                     c = GA[m][h]
                     prav = max(0.1, c["pr"]) / max(0.3, 1 - c["br"] / 100)
-                    xs.append((c["wr"] - 50, math.log(prav), math.log(1 + max(0.0, c["br"]))))
+                    xs.append((mirror(c["wr"], c["pr"]) - 50, math.log(prav), math.log(1 + max(0.0, c["br"]))))
             cols = list(zip(*xs))
             CONST[gid][role] = {"wr_sd": round(st.pstdev(cols[0]), 3), "pr_mu": round(st.mean(cols[1]), 4),
                                 "pr_sd": round(st.pstdev(cols[1]), 3), "br_mu": round(st.mean(cols[2]), 3),
@@ -560,9 +621,14 @@ def main():
                 c, P, e = KR[m][h], SM["all-maps"][h], eff[m][h]
                 g = 2 * NP[m] * c["pr"] / 100
                 prp, wrp, brp = P["pr"] * e["pr"], P["wr"] + e["wr"], max(0.0, (P["br"] + 1) * e["br"] - 1)
-                SM[m][h] = {"pr": (NP[m] * c["pr"] + K_PR * prp) / (NP[m] + K_PR),
-                            "br": (NP[m] * c["br"] + K_BR * brp) / (NP[m] + K_BR),
-                            "wr": shr(c["wr"], g, wrp), "g": g, "raw": c}
+                kp, kb = k_pr(gid, prp), k_br(gid, brp)
+                SM[m][h] = {"pr": (NP[m] * c["pr"] + kp * prp) / (NP[m] + kp),
+                            "br": (NP[m] * c["br"] + kb * brp) / (NP[m] + kb),
+                            "wr": shr(c["wr"], g, wrp, KW[gid]["wr"]), "g": g, "raw": c}
+        # adjusted values drop mirror matches from the win rate (after shrinking, on the published scale)
+        for m in SM:
+            for h in hero_ids:
+                SM[m][h]["wr"] = mirror(SM[m][h]["wr"], SM[m][h]["pr"])
         return SM
 
     def meta_index(SM, gid):
@@ -612,6 +678,8 @@ def main():
             totals[gid] = int(NP["all-maps"])
             brackets.append({
                 "id": gid, "label": glabel, "ranks": granks, "c": CONST[gid],
+                "k": {"wr": round(KW[gid]["wr"]), "t_wr": round(KW[gid]["t_wr"], 2),
+                      "pr5": round(k_pr(gid, 5)), "pr20": round(k_pr(gid, 20)), "br5": round(k_br(gid, 5))},
                 "N": {m: int(round(NP[m])) for m in ALL},
                 "cells": {m: [[r1(SM[m][h]["pr"]), r1(SM[m][h]["wr"]), r1(SM[m][h]["br"]),
                                r1(SM[m][h]["raw"]["pr"]), r1(SM[m][h]["raw"]["wr"]), r1(SM[m][h]["raw"]["br"]),
