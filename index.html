@@ -363,16 +363,16 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 /* ---- home: all-maps tier board (three dark role panels) */
 .rtboard{background:linear-gradient(180deg,#171E2B,#111722);padding:16px;color:#E8ECF2}
 .rt-tabs{display:none}
-.rt-panels{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr);gap:12px;align-items:start}
+.rt-panels{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,6fr) minmax(0,4fr);gap:12px;align-items:start}
 .rt-pn{background:#1B2331;border:1px solid #2C3749}
 .rt-ph{display:flex;align-items:center;padding:11px 14px;border-bottom:1px solid #2C3749;font-weight:700;font-size:16px}
 .rt-ph .n{margin-left:auto;font-size:12px;color:#8C98AA;font-weight:500}
 .rt-tr{display:grid;grid-template-columns:34px minmax(0,1fr);border-bottom:1px solid #243044;min-height:64px}
 .rt-tr:last-child{border-bottom:0}
 .rt-tl{display:grid;place-items:center;font-family:var(--display);font-size:20px;background:var(--tc);color:var(--tci)}
-.rt-hs{display:flex;flex-wrap:wrap;gap:10px 5px;padding:10px 8px;align-content:center}
-.rt-hs .none{font-size:12px;color:#6F7B8E;align-self:center;padding-left:4px}
-.rt-h{width:60px;display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:none;padding:0;color:inherit;cursor:pointer;font:inherit}
+.rt-hs{display:grid;grid-template-columns:repeat(var(--cols,4),minmax(0,1fr));gap:10px 4px;padding:10px 6px;align-content:center;justify-items:center}
+.rt-hs .none{grid-column:1/-1;justify-self:start;font-size:12px;color:#6F7B8E;align-self:center;padding-left:4px}
+.rt-h{width:100%;max-width:84px;display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:none;padding:0;color:inherit;cursor:pointer;font:inherit}
 .rt-h img{width:46px;height:46px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 2px var(--tc);background:#2A3446;transition:transform .15s}
 .rt-h:hover img{transform:scale(1.08)}
 .rt-h:focus-visible{outline:2px solid #7C95FF;outline-offset:2px}
@@ -381,8 +381,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 .rt-h .mv{font-size:9px;margin-left:2px}
 .rt-tr.rt-top{background:linear-gradient(90deg,rgba(200,50,58,.24),rgba(200,50,58,0) 70%)}
 .rt-tr.rt-top .rt-tl{font-size:28px}
-.rt-tr.rt-top .rt-h{width:76px}
-.rt-tr.rt-top .rt-h img{width:68px;height:68px;box-shadow:0 0 0 3px var(--tc),0 4px 14px rgba(0,0,0,.5)}
+.rt-tr.rt-top .rt-h img{width:60px;height:60px;box-shadow:0 0 0 3px var(--tc),0 4px 14px rgba(0,0,0,.5)}
 .rt-tr.rt-top .rt-h .nm{font-size:13.5px;font-weight:700;color:#fff}
 .rt-tabs button{flex:1;border:0;background:transparent;color:#8C98AA;font-weight:700;font-size:14px;padding:9px 0;cursor:pointer}
 .rt-tabs button[aria-pressed="true"]{background:#E8ECF2;color:#141922}
@@ -393,8 +392,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   .rt-panels[data-active="tank"] .rt-pn:not([data-role-panel="tank"]),
   .rt-panels[data-active="damage"] .rt-pn:not([data-role-panel="damage"]),
   .rt-panels[data-active="support"] .rt-pn:not([data-role-panel="support"]){display:none}
-  .rt-tr.rt-top .rt-h{width:74px}
-  .rt-tr.rt-top .rt-h img{width:58px;height:58px}
+  .rt-hs{grid-template-columns:repeat(auto-fill,minmax(66px,1fr))}
 }
 
 /* ---- home: map meta, modes in two columns, wide short cards */
@@ -848,7 +846,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     let board = `<div class="rt-tabs" role="group" aria-label="역할">${ROLES.map(([r, l]) => `<button type="button" data-home-role="${r}" aria-pressed="${state.homeRole === r}">${l}</button>`).join('')}</div><div class="rt-panels" id="rtPanels" data-active="${state.homeRole}">`;
     for (const [r, label] of ROLES) {
       const order = ranked('all-maps', r);
-      board += `<section class="rt-pn" data-role-panel="${r}" aria-label="${label} 티어"><div class="rt-ph"><span>${label}</span><span class="n">${order.length}명</span></div>`;
+      board += `<section class="rt-pn" data-role-panel="${r}" style="--cols:${r === 'damage' ? 6 : 4}" aria-label="${label} 티어"><div class="rt-ph"><span>${label}</span><span class="n">${order.length}명</span></div>`;
       for (const t of TIERS) {
         const hs = order.filter(i => tierOf(MR[r]['all-maps'][i]) === t);
         board += `<div class="rt-tr t-${t}${t === 'S' ? ' rt-top' : ''}"><div class="rt-tl" aria-label="${t} 티어">${t}</div><div class="rt-hs">${hs.length ? hs.map(i => {
