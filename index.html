@@ -305,6 +305,22 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 }
 @media (prefers-reduced-motion: reduce){ .mcard .bg img{transition:none} .mcard:hover .bg img{transform:none} }
 
+/* ---- detail: hero trend */
+.tr-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.tr-head h3{margin-right:4px}
+#trendHero{border:1px solid var(--line);background:var(--panel);padding:6px 10px;font-weight:600;font-size:14px}
+.tr-metric{margin-left:auto}
+.tr-metric button{padding:5px 11px;font-size:13px}
+.tr-chart{position:relative}
+.tr-chart svg{display:block;width:100%;height:auto;touch-action:pan-y}
+.tr-chart text{font-family:var(--text)}
+.tr-tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);box-shadow:0 6px 20px rgba(10,15,25,.18);padding:8px 10px;font-size:12.5px;line-height:1.5;white-space:nowrap;font-variant-numeric:tabular-nums;z-index:5}
+.tr-tip b{display:block;font-size:12px;color:var(--muted);font-weight:600}
+.tr-tip .badge{font-size:11.5px;padding:0 5px;margin-right:5px}
+.tr-empty{padding:26px 0;color:var(--muted);font-size:13.5px}
+.tr-table summary{cursor:pointer;font-size:13px;color:var(--muted);margin-top:8px}
+@media (max-width: 560px){ .tr-metric{margin-left:0} }
+
 /* ---- home: all-maps tier board (three dark role panels) */
 .rtboard{background:linear-gradient(180deg,#171E2B,#111722);padding:16px;color:#E8ECF2}
 .rt-tabs{display:none}
@@ -436,6 +452,17 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         <div class="board" id="board"></div>
       </section>
 
+      <section class="panel" id="trendPanel">
+        <div class="tr-head">
+          <h3>영웅 추이</h3>
+          <select id="trendHero" aria-label="추이를 볼 영웅"></select>
+          <div class="seg tr-metric" role="group" aria-label="지표" id="trendMetric"></div>
+        </div>
+        <p class="hint" id="trendHint"></p>
+        <div class="tr-chart" id="trendChart"></div>
+        <details class="tr-table"><summary>표로 보기</summary><div class="table-wrap"><table class="ctable" id="trendTable"></table></div></details>
+      </section>
+
       <section class="panel">
         <h3>메타 지도</h3>
         <p class="hint">가로는 픽률(로그 눈금), 세로는 승률, 원 크기는 밴률, 색은 티어입니다. 원을 누르면 해당 영웅이 표와 맵별 티어 비교에서 강조됩니다.</p>
@@ -518,6 +545,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
           <li><b>맵 카드</b>: 그 맵의 역할별 지수 상위 돌격 1·공격 2·지원 2 (역할마다 따로 뽑은 것이라 실제 함께 쓰인 조합은 아님)</li>
           <li><b>★</b>: 전체 맵 조합에는 없지만 그 맵 조합에 들어온 영웅</li>
           <li><b>▲▼</b>: 직전 기록 대비 티어 변동(기본 가중치·보정 기준)</li>
+          <li><b>영웅 추이</b>: 하루 한 번 저장한 전체 맵 기록(지수는 기본 가중치·보정, 픽률·승률·밴률은 원본)</li>
           <li><b>패치 감지</b>: 경기 수가 직전의 70% 아래로 떨어지면 새 패치로 보고 지난 패치 마지막 기록과 비교</li>
         </ul>
         <h4>주의할 점</h4>
@@ -857,6 +885,105 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     $('board').innerHTML = html;
   }
 
+  // ---- hero trend from the daily archive
+  const ARC = {};
+  const METRICS = [['mi','지수'],['pr','픽률'],['wr','승률'],['br','밴률']];
+  let trendMetric = 'mi';
+  function trendHeroIdx(){
+    if (state.focus != null && H[state.focus] && H[state.focus].role === state.role) return state.focus;
+    const mi = MI['all-maps'];
+    return IDX.slice().sort((a, b) => mi[b] - mi[a])[0];
+  }
+  function renderTrend(){
+    const idxHero = trendHeroIdx();
+    const sel = $('trendHero');
+    sel.innerHTML = IDX.slice().sort((a, b) => H[a].name.localeCompare(H[b].name, 'ko')).map(i => `<option value="${i}"${i === idxHero ? ' selected' : ''}>${esc(H[i].name)}</option>`).join('');
+    $('trendMetric').innerHTML = METRICS.map(([k, l]) => `<button type="button" data-tmetric="${k}" aria-pressed="${trendMetric === k}">${l}</button>`).join('');
+    const sv = state.server;
+    const entry = INDEX.servers.find(x => x.id === sv);
+    if (ARC[sv] === undefined) {
+      ARC[sv] = null;
+      fetch(`archive/${sv}.json?v=${entry ? entry.hash : Date.now()}`)
+        .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+        .then(a => { ARC[sv] = a; if (state.server === sv && state.view === 'detail') renderTrend(); })
+        .catch(() => { ARC[sv] = false; if (state.server === sv && state.view === 'detail') renderTrend(); });
+    }
+    const arc = ARC[sv];
+    const chart = $('trendChart'), hint = $('trendHint'), table = $('trendTable');
+    if (!arc) {
+      chart.innerHTML = `<div class="tr-empty">${arc === false ? '기록을 불러오지 못했습니다.' : '기록을 불러오는 중입니다…'}</div>`;
+      hint.textContent = ''; table.innerHTML = ''; return;
+    }
+    const hid = H[idxHero].id, bid = curB();
+    const pts = arc.days.map(d => { const b = d.b[bid]; const v = b && b.h[hid]; return v ? {d:d.d, mi:v[0], pr:v[1], wr:v[2], br:v[3]} : null; }).filter(Boolean);
+    const bl = BK().label;
+    hint.textContent = `${D.meta.label} · ${bl} 구간 · 전체 맵 · 하루 1회 기록` + (pts.length ? ` · ${pts.length}일째 (${pts[0].d.slice(5).replace('-', '.')}부터)` : '');
+    table.innerHTML = `<thead><tr><th>날짜</th><th>지수</th><th>픽률</th><th>승률</th><th>밴률</th></tr></thead><tbody>` +
+      pts.slice().reverse().map(p => `<tr><td>${p.d}</td><td>${tierOf(p.mi)} ${p.mi}</td><td>${pct(p.pr)}</td><td>${pct(p.wr)}</td><td>${pct(p.br)}</td></tr>`).join('') + '</tbody>';
+    if (!pts.length) { chart.innerHTML = `<div class="tr-empty">이 영웅의 기록이 아직 없습니다.</div>`; return; }
+
+    const key = trendMetric;
+    const W = Math.max(300, Math.round(chart.clientWidth || 720)), HH = W < 500 ? 220 : 250, M = {l:40, r:key === 'mi' ? 28 : 14, t:14, b:30};
+    const vs = pts.map(p => p[key]);
+    let y0, y1;
+    if (key === 'mi') { y0 = Math.min(30, Math.floor(Math.min(...vs) - 3)); y1 = Math.max(72, Math.ceil(Math.max(...vs) + 3)); }
+    else if (key === 'wr') { y0 = Math.min(45, Math.floor(Math.min(...vs) - 1)); y1 = Math.max(55, Math.ceil(Math.max(...vs) + 1)); }
+    else { y0 = 0; y1 = Math.max(key === 'br' ? 2 : 4, Math.ceil(Math.max(...vs) * 1.2)); }
+    const t0 = Date.parse(pts[0].d), t1 = Date.parse(pts[pts.length - 1].d);
+    const span = Math.max(t1 - t0, 864e5 * 6);   // at least a week wide so a few days don't stretch edge to edge
+    const x = d => M.l + (Date.parse(d) - t0) / span * (W - M.l - M.r);
+    const y = v => M.t + (1 - (v - y0) / (y1 - y0)) * (HH - M.t - M.b);
+    const fmt = v => key === 'mi' ? String(Math.round(v)) : v.toFixed(1) + '%';
+    let g = `<svg viewBox="0 0 ${W} ${HH}" role="img" aria-label="${esc(H[idxHero].name)} ${METRICS.find(m => m[0] === key)[1]} 추이">`;
+    if (key === 'mi') {
+      const bands = [['S', 62, 200, '--t-s'], ['A', 55, 62, '--t-a'], ['B', 46, 55, '--t-b'], ['C', 40, 46, '--t-c'], ['D', -100, 40, '--t-d']];
+      for (const [t, lo, hi, c] of bands) {
+        const a = Math.max(lo, y0), b = Math.min(hi, y1); if (b <= a) continue;
+        g += `<rect x="${M.l}" y="${y(b)}" width="${W - M.l - M.r}" height="${y(a) - y(b)}" fill="var(${c})" fill-opacity=".10"/>`;
+        g += `<text x="${W - M.r + 8}" y="${(y(a) + y(b)) / 2 + 4}" font-size="11" font-weight="700" fill="var(--faint)">${t}</text>`;
+      }
+    }
+    const steps = key === 'mi' ? 10 : key === 'wr' ? (y1 - y0 > 16 ? 5 : 2) : Math.max(1, Math.ceil((y1 - y0) / 5));
+    for (let v = Math.ceil(y0 / steps) * steps; v <= y1; v += steps) {
+      g += `<line x1="${M.l}" x2="${W - M.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/>`;
+      g += `<text x="${M.l - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${key === 'mi' ? v : v + '%'}</text>`;
+    }
+    if (key === 'wr') g += `<line x1="${M.l}" x2="${W - M.r}" y1="${y(50)}" y2="${y(50)}" stroke="var(--faint)" stroke-width="1.4"/>`;
+    // date ticks: first, last and a few in between
+    const tickN = Math.min(pts.length, W < 500 ? 4 : 6);
+    const ticks = [...new Set(Array.from({length:tickN}, (_, k) => pts[Math.round(k * (pts.length - 1) / Math.max(1, tickN - 1))].d))];
+    for (const d of ticks) g += `<text x="${x(d)}" y="${HH - 8}" text-anchor="middle" font-size="11" fill="var(--muted)">${d.slice(5).replace('-', '.')}</text>`;
+    for (const ps of arc.patches || []) {
+      const d = ps.slice(0, 10); const t = Date.parse(d);
+      if (t < t0 || t > t0 + span) continue;
+      g += `<line x1="${x(d)}" x2="${x(d)}" y1="${M.t}" y2="${HH - M.b}" stroke="var(--t-a)" stroke-width="1.4" stroke-dasharray="4 4"/><text x="${x(d) + 4}" y="${M.t + 11}" font-size="10.5" fill="var(--muted)">패치</text>`;
+    }
+    if (pts.length > 1) g += `<polyline points="${pts.map(p => `${x(p.d).toFixed(1)},${y(p[key]).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    for (const p of pts) g += `<circle cx="${x(p.d).toFixed(1)}" cy="${y(p[key]).toFixed(1)}" r="4" fill="var(--accent)" stroke="var(--panel)" stroke-width="2"/>`;
+    const last = pts[pts.length - 1];
+    g += `<text x="${x(last.d) - 6}" y="${y(last[key]) - 10}" text-anchor="${pts.length > 1 ? 'end' : 'start'}" font-size="12" font-weight="700" fill="var(--ink)" stroke="var(--panel)" stroke-width="3" paint-order="stroke">${fmt(last[key])}</text>`;
+    g += `<line id="trX" x1="0" x2="0" y1="${M.t}" y2="${HH - M.b}" stroke="var(--ink)" stroke-width="1" opacity="0"/>`;
+    g += `<rect id="trHit" x="${M.l}" y="${M.t}" width="${W - M.l - M.r}" height="${HH - M.t - M.b}" fill="transparent"/></svg>`;
+    chart.innerHTML = g + `<div class="tr-tip" id="trTip" hidden></div>` + (pts.length < 2 ? `<div class="tr-empty">기록이 쌓이는 중입니다. 하루에 한 번 기록되며, 이틀째부터 선으로 이어집니다.</div>` : '');
+    const svg = chart.querySelector('svg'), tip = $('trTip'), cross = $('trX');
+    const show = ev => {
+      const r = svg.getBoundingClientRect();
+      const sx = (ev.clientX - r.left) / r.width * W;
+      let best = pts[0];
+      for (const p of pts) if (Math.abs(x(p.d) - sx) < Math.abs(x(best.d) - sx)) best = p;
+      const px = x(best.d);
+      cross.setAttribute('x1', px); cross.setAttribute('x2', px); cross.setAttribute('opacity', '.35');
+      tip.innerHTML = `<b>${best.d}</b><span class="badge t-${tierOf(best.mi)}">${tierOf(best.mi)}</span>지수 ${best.mi}<br>픽률 ${pct(best.pr)} · 승률 ${pct(best.wr)} · 밴률 ${pct(best.br)}`;
+      tip.hidden = false;
+      const left = px / W * r.width, top = y(best[key]) / HH * r.height;
+      tip.style.left = Math.min(Math.max(0, left + 12), r.width - tip.offsetWidth) + 'px';
+      tip.style.top = Math.max(0, top - tip.offsetHeight - 10) + 'px';
+    };
+    const hide = () => { tip.hidden = true; cross.setAttribute('opacity', '0'); };
+    const hit = $('trHit');
+    hit.addEventListener('pointermove', show); hit.addEventListener('pointerdown', show); hit.addEventListener('pointerleave', hide);
+  }
+
   function renderScatter(){
     const cells = BK().cells[state.map];
     const mi = MI[state.map];
@@ -1036,10 +1163,10 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     renderFresh();
     if (state.view === 'home') renderHome();
     else if (state.view === 'method') renderConsts();
-    else { renderRail(); renderBoard(); renderScatter(); renderTable(); renderHeat(); }
+    else { renderRail(); renderBoard(); renderTrend(); renderScatter(); renderTable(); renderHeat(); }
     store.set('state', {server:state.server, role:state.role, map:state.map, w:state.w, smooth:state.smooth});
   }
-  function lightRender(){ renderBoard(); renderScatter(); renderTable(); renderHeat(); }
+  function lightRender(){ renderBoard(); renderTrend(); renderScatter(); renderTable(); renderHeat(); }
   function setView(v, opts){
     opts = opts || {};
     if (!['home', 'detail', 'method'].includes(v)) v = 'home';
@@ -1055,6 +1182,8 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 
   document.addEventListener('click', e => {
     const t = e.target;
+    const tmEl = t.closest('[data-tmetric]');
+    if (tmEl) { trendMetric = tmEl.dataset.tmetric; renderTrend(); return; }
     const hrEl = t.closest('[data-home-role]');
     if (hrEl) {
       state.homeRole = hrEl.dataset.homeRole;
@@ -1091,6 +1220,9 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     if (heroEl) { const i = +heroEl.dataset.hero; state.focus = (state.focus === i ? null : i); lightRender(); return; }
   });
   $('mapSelect').addEventListener('change', e => { state.map = e.target.value; renderAll(); });
+  $('trendHero').addEventListener('change', e => { state.focus = +e.target.value; lightRender(); });
+  let rz = 0, lastW = window.innerWidth;
+  window.addEventListener('resize', () => { if (window.innerWidth === lastW) return; lastW = window.innerWidth; clearTimeout(rz); rz = setTimeout(() => { if (state.view === 'detail' && D) renderTrend(); }, 150); });
   $('smooth').addEventListener('change', e => { state.smooth = e.target.checked; renderAll(); });
   let raf = 0;
   // two handles on one 0-100 track: [0, a] win rate, [a, b] pick rate, [b, 100] ban rate; handles push each other

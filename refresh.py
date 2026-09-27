@@ -8,7 +8,8 @@ Sources (competitive role queue, PC):
   Korea                      -> https://overwatch.nexon.com/hero/rate       (8 ranks + all ranks)
   Asia / Americas / Europe   -> https://overwatch.blizzard.com/ko-kr/rates/ (8 ranks + all ranks)
 
-Writes data/index.json, data/<server>.json and history/<server>.json.
+Writes data/index.json, data/<server>.json, history/<server>.json and archive/<server>.json
+(one entry per day, KST, for the trend charts; --archive-only rebuilds today's entry from data/).
 The final line is always one of:
     RESULT: UPDATED     (files written; commit them)
     RESULT: UNCHANGED   (source numbers identical to the last run; nothing written)
@@ -311,13 +312,74 @@ def write_json(path, obj):
     os.replace(tmp, path)
 
 
+# ---------------------------------------------------------------- daily archive
+def default_mi(exp, bracket):
+    """Default-weight meta index from an exported server file, the same computation the page does
+    (smoothed cells, per role, scaled on the pool of every map x hero)."""
+    heroes, maps = exp["heroes"], [m["id"] for m in exp["maps"]]
+    cells, out = bracket["cells"], {}
+    for role in ROLE_ORDER:
+        C = bracket["c"][role]
+        idx = [i for i, h in enumerate(heroes) if h["role"] == role]
+
+        def comp(c):
+            prav = max(0.1, c[0]) / max(0.3, 1 - c[2] / 100)
+            z = ((c[1] - 50) / C["wr_sd"], (math.log(prav) - C["pr_mu"]) / C["pr_sd"],
+                 (math.log(1 + max(0.0, c[2])) - C["br_mu"]) / C["br_sd"])
+            return 0.5 * z[0] + 0.3 * z[1] + 0.2 * z[2]
+        pool = [comp(cells[m][i]) for m in maps for i in idx] or [comp(cells["all-maps"][i]) for i in idx]
+        mu, sd = st.mean(pool), (st.pstdev(pool) or 1.0)
+        for i in idx:
+            out[heroes[i]["id"]] = round(50 + 10 * (comp(cells["all-maps"][i]) - mu) / sd)
+    return out
+
+
+def update_archive(path, exp):
+    """Keep one all-maps entry per day (the day's latest data wins): per bracket the estimated matches and,
+    per hero, [meta index, pick, win, ban] with the source (unsmoothed, bracket-merged) rates."""
+    arc = load_json(path, None) or {"server": exp["meta"]["server"], "days": [], "patches": []}
+    at = exp["meta"]["collectedAt"]
+    day = at[:10]
+    entry = {"d": day, "at": at, "b": {}}
+    for b in exp["brackets"]:
+        mi = default_mi(exp, b)
+        h = {}
+        for i, hero in enumerate(exp["heroes"]):
+            c = b["cells"]["all-maps"][i]
+            if c[7]:
+                continue
+            h[hero["id"]] = [mi[hero["id"]], c[3], c[4], c[5]]
+        entry["b"][b["id"]] = {"n": b["N"].get("all-maps"), "h": h}
+    arc["label"] = exp["meta"]["label"]
+    arc["heroes"] = {x["id"]: {"name": x["name"], "role": x["role"], "img": x["img"]} for x in exp["heroes"]}
+    arc["days"] = [x for x in arc.get("days", []) if x["d"] != day] + [entry]
+    arc["days"].sort(key=lambda x: x["d"])
+    ps = exp["meta"].get("patchStart")
+    if ps and ps not in arc.setdefault("patches", []):
+        arc["patches"].append(ps)
+        arc["patches"].sort()
+    write_json(path, arc)
+
+
 # ---------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="data")
     ap.add_argument("--history", default="history")
+    ap.add_argument("--archive", default="archive")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--archive-only", action="store_true", help="only rebuild today's archive entries from data/")
     args = ap.parse_args()
+
+    if args.archive_only:
+        idx = load_json(os.path.join(args.out, "index.json"), {}) or {}
+        for sv in idx.get("servers", []):
+            exp = load_json(os.path.join(args.out, f"{sv['id']}.json"))
+            if exp:
+                update_archive(os.path.join(args.archive, f"{sv['id']}.json"), exp)
+                log(f"archived {sv['id']}")
+        print("RESULT: UPDATED", flush=True)
+        return
 
     t0 = time.time()
     log("Reading Nexon filters...")
@@ -582,7 +644,7 @@ def main():
                        "mi": {g: {"all-maps": v.get("all-maps"), **{m: v.get(m) for m in map_ids if m in v}}
                               for g, v in base.get("mi", {}).items()}}
         last_patch = hist.get("lastPatchTotals") or {}
-        write_json(os.path.join(args.out, f"{s}.json"), {
+        exported = {
             "meta": {"server": s, "label": label, "source": sources[kind], "collectedAt": now_s, "hash": hashes[s],
                      "shares": {r: round(shares[s][r] * 100, 2) for r in RANKS},
                      "patchStart": hist.get("patchStart"),
@@ -590,7 +652,9 @@ def main():
             "roles": roles_out, "modes": mode_order, "heroes": heroes_out,
             "maps": [{"id": mp["id"], "name": mp["name"], "short": short(mp), "mode": mp["mode"]} for mp in maps],
             "brackets": brackets, "compare": compare,
-        })
+        }
+        write_json(os.path.join(args.out, f"{s}.json"), exported)
+        update_archive(os.path.join(args.archive, f"{s}.json"), exported)
         index_servers.append({"id": s, "label": label, "source": kind, "hash": hashes[s], "collectedAt": now_s})
 
     write_json(os.path.join(args.out, "index.json"), {"collectedAt": now_s, "servers": index_servers})
