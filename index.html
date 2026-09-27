@@ -254,7 +254,7 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
 .viewtabs button{border:0;background:transparent;padding:10px 16px 11px;font-size:15px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px}
 .viewtabs button:hover{color:var(--ink)}
 .viewtabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
-body[data-view="home"] #seg,body[data-view="home"] #detailView,body[data-view="home"] #method{display:none}
+body[data-view="home"] #seg,body[data-view="home"] #detailView,body[data-view="home"] #method,body[data-view="home"] .row2{display:none}
 body[data-view="detail"] #homeView{display:none}
 .seg-b button .rk.mini img{width:17px;height:17px}
 
@@ -294,10 +294,10 @@ body[data-view="detail"] #homeView{display:none}
 .rt-cell{display:flex;flex-wrap:wrap;gap:6px;align-content:center;align-items:center;padding:8px 10px;border-left:1px solid var(--line);min-width:0}
 .rt-cell .none{color:var(--faint);font-size:13px}
 .rt-cell .chip{font-size:14px;padding:6px 13px 6px 11px}
-.home-legend .mv{font-size:11px}
 .rt-row .tier-label{align-self:stretch}
-.home-legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:14px 0 0;font-size:12.5px;color:var(--muted)}
-.home-legend b{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#F4B81C;color:#1C1206;font-size:10px;line-height:1;margin-right:5px;vertical-align:-2px}
+.star{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#F4B81C;color:#1C1206;font-size:10px;line-height:1;vertical-align:-2px;margin:0 2px}
+.home-sub .mv{font-size:11px}
+.custom-note{margin:0 0 12px;font-size:13px;color:var(--muted)}
 .home-foot{margin-top:18px;font-size:12.5px;color:var(--muted)}
 .home-foot a,.home-foot button.linklike{color:inherit}
 button.linklike{border:0;background:none;padding:0;text-decoration:underline;cursor:pointer;font-size:inherit}
@@ -349,19 +349,19 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   </header>
 
   <nav class="viewtabs" role="tablist" aria-label="화면">
-    <button type="button" role="tab" data-view="home" aria-selected="true">맵별 메타</button>
-    <button type="button" role="tab" data-view="detail" aria-selected="false">상세 티어표</button>
+    <button type="button" role="tab" data-view="home" aria-selected="true">한눈에 보기</button>
+    <button type="button" role="tab" data-view="detail" aria-selected="false">맵·영웅 상세</button>
   </nav>
 
   <section id="homeView">
     <div class="home-head"><h2>전체 맵 종합</h2><span class="sample" id="homeSample"></span></div>
     <p class="home-sub" id="homeBoardSub"></p>
     <p class="patch-note" id="homePatch" hidden></p>
+    <p class="custom-note" id="homeCustom" hidden></p>
     <div class="rtboard" id="homeBoard"></div>
     <div class="home-head second"><h2>맵별 메타 조합</h2></div>
     <p class="home-sub" id="homeSub"></p>
     <div class="mgrid" id="mgrid"></div>
-    <div class="home-legend"><span>테두리와 글자: 영웅의 역할 안 티어</span><span><b>★</b>전체 맵 종합 상위(돌격 1·공격 2·지원 2)에는 없지만 이 맵 조합에 들어온 영웅</span></div>
     <p class="home-foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다. <button type="button" class="linklike" data-view="detail" data-anchor="method">계산 방식 보기</button></p>
   </section>
 
@@ -432,7 +432,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         <div class="table-wrap"><table class="ctable" id="ctable"></table></div>
         <p>종합 점수는 선택한 구간과 역할 안에서 모든 맵·영웅 분포를 기준으로 평균 50, 표준편차 10이 되게 바꾼 값입니다. 그래서 같은 구간·역할 안에서는 맵끼리 지수를 바로 비교할 수 있지만, 구간이나 역할끼리 지수를 비교하는 용도는 아닙니다.</p>
         <h4>맵별 메타 조합</h4>
-        <p>첫 화면의 맵 카드는 선택한 서버와 구간에서 그 맵의 역할별 메타 지수 상위 영웅을 돌격 1명, 공격 2명, 지원 2명으로 뽑은 조합입니다. 역할마다 따로 순위를 매기므로 실제 경기에서 함께 쓰인 조합이라는 뜻은 아닙니다. ★는 전체 맵 종합 상위 조합에는 없지만 그 맵에서 조합에 들어온 영웅이고, 첫 화면 티어표의 ▲▼는 상세 티어표와 같은 기준의 티어 변동입니다.</p>
+        <p>첫 화면의 맵 카드는 선택한 서버와 구간에서 그 맵의 역할별 메타 지수 상위 영웅을 돌격 1명, 공격 2명, 지원 2명으로 뽑은 조합입니다. 역할마다 따로 순위를 매기므로 실제 경기에서 함께 쓰인 조합이라는 뜻은 아닙니다. ★는 전체 맵 종합 조합(돌격 1·공격 2·지원 2)에는 없지만 그 맵 조합에 들어온 영웅입니다. 카드의 영웅에 마우스를 올리면 전체 맵 대비 지수 차이가 나옵니다. 한눈에 보기 티어표의 ▲▼는 상세 화면과 같은 기준의 티어 변동입니다.</p>
         <h4>티어 기준</h4>
         <p>S 62 이상, A 55~61, B 46~54, C 40~45, D 39 이하.</p>
         <h4>읽을 때 주의할 점</h4>
@@ -665,13 +665,13 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       for (const [r, label] of ROLES) {
         const hs = ranked('all-maps', r).filter(i => tierOf(MR[r]['all-maps'][i]) === t);
         board += `<div class="rt-cell" data-label="${label}">${hs.length ? hs.map(i =>
-          `<button type="button" class="chip" data-go="all-maps" data-go-role="${r}" data-go-hero="${i}" title="${esc(H[i].name)} 상세 보기">${portrait(i, 'pt')}<span class="nm">${esc(H[i].name)}</span><span class="sc">${Math.round(MR[r]['all-maps'][i])}</span>${markOf(r, i)}</button>`).join('') : '<span class="none">없음</span>'}</div>`;
+          `<button type="button" class="chip" data-go="all-maps" data-go-role="${r}" data-go-hero="${i}" title="${esc(H[i].name)}: 맵·영웅 상세에서 보기">${portrait(i, 'pt')}<span class="nm">${esc(H[i].name)}</span><span class="sc">${Math.round(MR[r]['all-maps'][i])}</span>${markOf(r, i)}</button>`).join('') : '<span class="none">없음</span>'}</div>`;
       }
       board += `</div>`;
     }
     $('homeBoard').innerHTML = board;
-    $('homeBoardSub').textContent = `${MAP_IDS.length}개 맵을 모두 합친 역할별 티어입니다. 영웅을 누르면 상세 티어표에서 그 영웅을 강조해 보여 줍니다. 티어는 역할마다 따로 매긴 것이라, 역할이 다른 영웅끼리 지수를 직접 비교하는 용도는 아닙니다.`
-      + (PREV ? ` ▲▼는 ${PREV.label}(${new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', month:'long', day:'numeric'}).format(new Date(PREV.at))}) 대비 티어가 바뀐 영웅입니다.` : '');
+    $('homeBoardSub').innerHTML = `${MAP_IDS.length}개 맵을 합쳐 역할마다 따로 매긴 티어입니다.`
+      + (PREV ? ` <span class="mv up">▲</span><span class="mv down">▼</span> ${PREV.label} 대비 티어 변동.` : '');
 
     let html = '';
     for (const mode of MODES) {
@@ -689,8 +689,14 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     }
     $('mgrid').innerHTML = html;
     $('homeSample').textContent = `${D.meta.label} ${B.label}(${B.ranks}), 추정 ${fmtInt(B.N['all-maps'])}경기`;
-    $('homeSub').textContent = `맵마다 역할별 메타 지수가 가장 높은 돌격 1명, 공격 2명, 지원 2명입니다. 카드를 누르면 그 맵의 상세 티어표로 넘어갑니다.`
-      + (state.smooth ? '' : ' 표본 보정이 꺼져 있어 경기 수가 적은 맵은 순위가 흔들릴 수 있습니다.');
+    $('homeSub').innerHTML = `맵마다 역할별 지수 상위 돌격 1·공격 2·지원 2명입니다. <span class="star" aria-hidden="true">★</span> 전체 맵 조합에 없던 영웅.`;
+    const custom = !state.smooth || ['wr','pr','br'].some(k => state.w[k] !== DEFAULT_W[k]);
+    const cn = $('homeCustom');
+    cn.hidden = !custom;
+    if (custom) {
+      const w = weights(state.w);
+      cn.innerHTML = `상세 화면에서 바꾼 설정(${state.smooth ? '' : '표본 보정 끔, '}가중치 승률 ${Math.round(w[0]*100)} / 픽률 ${Math.round(w[1]*100)} / 밴률 ${Math.round(w[2]*100)})이 적용된 결과입니다. <button type="button" class="linklike" id="homeReset">기본값으로 보기</button>`;
+    }
   }
 
   function renderBoard(){
@@ -969,6 +975,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     });
   }
   $('wreset').addEventListener('click', () => { state.w = Object.assign({}, DEFAULT_W); renderAll(); });
+  document.addEventListener('click', e => { if (e.target.id === 'homeReset') { state.w = Object.assign({}, DEFAULT_W); state.smooth = true; renderAll(); } });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { const d = $('weights'); if (d.open) d.open = false; } });
 
   if (location.hash === '#tier') state.view = 'detail';
