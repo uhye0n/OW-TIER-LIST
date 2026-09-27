@@ -190,6 +190,22 @@ table.heat{border-collapse:separate;border-spacing:2px;font-size:12.5px}
 .method .muted{color:var(--muted)}
 .formula{background:var(--panel-2);border-left:3px solid var(--ink);padding:10px 14px;margin:6px 0 10px;font-size:13.5px;line-height:1.75}
 .foot{margin-top:18px;font-size:12.5px;color:var(--muted)}
+.m-lead{margin:10px 0 16px;font-size:15px;font-weight:600;max-width:80ch}
+.m-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width: 900px){ .m-grid{grid-template-columns:minmax(0,1fr)} }
+#method .foot{margin-top:14px}
+.m-card{background:var(--panel-2);border:1px solid var(--line);padding:4px 16px 14px}
+.m-card h4{font-size:14.5px;margin:12px 0 6px}
+.m-list{margin:0;padding-left:17px;font-size:13.5px;line-height:1.55}
+.m-list li{margin:2px 0}
+.m-list.muted{color:var(--muted)}
+.m-card .formula{margin:4px 0 8px;font-size:13px;line-height:1.7}
+.m-card .ctable{min-width:0;width:100%;margin-top:10px;font-size:12.5px}
+.m-card .ctable th,.m-card .ctable td{padding:4px 6px}
+.m-tiers{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:0;font-size:13.5px}
+.m-tiers .badge{margin-right:3px}
+.m-tiers .tp{white-space:nowrap}
+
 
 @media (max-width: 900px){
   .layout{grid-template-columns:minmax(0,1fr);gap:14px}
@@ -418,42 +434,74 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   <section class="panel method" id="method">
     <h3>계산 방식</h3>
     <p class="fresh"><span class="live" aria-hidden="true"></span><span id="freshText"></span></p>
-    <div class="cols">
-      <div>
-        <h4>데이터</h4>
-        <p>한국은 넥슨 오버워치 영웅 통계, 아시아·아메리카·유럽은 블리자드 오버워치 영웅 통계에서 경쟁전 역할 고정, PC 조건으로 브론즈부터 그랜드마스터 및 챔피언까지 여덟 개 등급의 전체 전장과 맵별 수치를 가져옵니다. 공식 필터에는 여러 등급을 묶은 구간이 없어서, 하위·중위·상위는 소속 등급을, 전체는 여덟 개 등급을 모두 합산해 만들었습니다. 한국은 아시아와 따로 집계되는 것으로 보여 별도 서버로 다룹니다.</p>
-        <h4>자동 갱신</h4>
-        <p>넥슨 통계는 다른 사이트에서 직접 불러올 수 없게 막혀 있어서, 이 페이지를 열 때 넥슨을 바로 조회하지는 않습니다. 대신 GitHub Actions가 6시간마다 네 서버의 통계 화면 약 1,000개를 새로 수집하고, 수치가 바뀌었으면 아래 방식으로 다시 계산해 이 페이지에 반영합니다. 수치가 그대로면 페이지도 그대로 둡니다. 맵과 영웅 목록도 매번 넥슨 필터에서 새로 읽기 때문에, 시즌이 바뀌어 맵이나 영웅이 추가되면 자동으로 따라갑니다.</p>
-        <h4>변동 표시와 패치</h4>
-        <p>수치가 바뀔 때마다 기본 가중치 기준 지수를 기록해 두고, 직전 기록과 비교해 티어가 오르거나 내린 영웅에 ▲▼를 붙입니다. 공식 통계는 패치 때마다 초기화되므로, 경기 수가 직전 기록의 70% 아래로 떨어지면 새 패치가 시작된 것으로 보고 비교 기준을 지난 패치의 마지막 기록으로 표시합니다. 새 패치 초반에 경기 수가 지난 패치의 절반이 안 되면 상단에 안내를 띄웁니다.</p>
-        <h4>추정 경기 수</h4>
-        <p>공식 페이지는 경기 수를 공개하지 않습니다. 밴률이 0.1% 단위로 표시된다는 점을 이용해, 그 맵의 모든 밴률을 설명할 수 있는 가장 작은 경기 수를 역산했습니다. 서버마다 그랜드마스터 및 챔피언은 이 방법으로 맵별 경기 수를 구하고, 마스터는 그 경기 수와의 관계식(로그 회귀)으로 추정합니다.</p><p>브론즈부터 다이아몬드까지는 경기가 너무 많아 이 방법이 통하지 않습니다. 대신 모든 등급 수치가 각 등급 수치를 경기 수로 가중 평균한 값이라는 점을 이용해 등급별 경기 비중을 풀고, 그랜드마스터 및 챔피언 경기 수를 기준으로 환산했습니다. 이 비중 추정은 오차가 10~25% 정도라서, 하위·중위의 경기 수는 규모를 가늠하는 참고값으로 보세요. 신뢰도 표시는 600경기 이상 높음, 150~599 보통, 150 미만 낮음입니다.</p>
-        <h4>구간 합산</h4>
-        <p>픽률과 밴률은 구간 안의 등급들을 맵별 추정 경기 수로 가중 평균했고, 승률은 각 등급에서 그 영웅이 플레이된 판 수로 가중 평균했습니다. 경기가 많은 등급(전체는 골드·플래티넘, 하위는 골드, 중위는 플래티넘, 상위는 마스터)의 영향을 더 크게 받습니다. 표에서 원본이라고 표시한 값도 이 합산값입니다.</p>
-        <h4>표본 보정</h4>
-        <p>경기 수가 적은 맵은 몇 판만으로 승률이 크게 흔들립니다. 그래서 각 수치를 사전값과 가중평균했습니다. 사전값은 그 영웅의 해당 서버 전체 맵 성적에, 아시아·아메리카·유럽을 합친 같은 구간 데이터에서 드러난 그 맵의 경향을 반영한 값입니다. 하위 구간은 해외 하위 구간의 맵 경향을, 상위 구간은 해외 상위 구간의 맵 경향을 쓰는 식입니다. 픽률과 밴률은 40경기, 승률은 그 영웅의 80판만큼의 무게를 사전값에 줍니다. 상단의 표본 보정을 끄면 원본 수치로 계산합니다.</p>
-      </div>
-      <div>
+    <p class="m-lead">픽률·승률·밴률을 역할별로 표준화해 하나의 메타 지수(평균 50)로 합치고, 지수 구간으로 S~D 티어를 나눕니다.</p>
+    <div class="m-grid">
+      <div class="m-card">
         <h4>메타 지수</h4>
         <div class="formula">
-          승률 점수 = (승률 − 50) ÷ σ승률<br>
-          픽률 점수 = (ln 가용 픽률 − μ픽률) ÷ σ픽률<br>
-          가용 픽률 = 픽률 ÷ (1 − 밴률)<br>
-          밴률 점수 = (ln(1 + 밴률) − μ밴률) ÷ σ밴률<br>
-          종합 = 승률 50% + 픽률 30% + 밴률 20% (기본값)
+          종합 = 승률 50% + 픽률 30% + 밴률 20% (기본값)<br>
+          승률 점수 = (승률 − 50) ÷ σ<br>
+          픽률 점수 = (ln(픽률 ÷ (1 − 밴률)) − μ) ÷ σ<br>
+          밴률 점수 = (ln(1 + 밴률) − μ) ÷ σ
         </div>
-        <p>상수는 구간·역할마다 아시아·아메리카·유럽을 합친 같은 구간 데이터의 분포로 정하고, 갱신할 때마다 다시 계산합니다.</p>
+        <ul class="m-list">
+          <li>μ·σ는 구간·역할마다 해외 세 서버 합산 분포로 정합니다.</li>
+          <li>종합 점수는 구간·역할 안의 모든 맵·영웅 기준 평균 50, 표준편차 10으로 바꿉니다.</li>
+          <li>같은 구간·역할 안에서만 비교하세요.</li>
+        </ul>
         <div class="table-wrap"><table class="ctable" id="ctable"></table></div>
-        <p>종합 점수는 선택한 구간과 역할 안에서 모든 맵·영웅 분포를 기준으로 평균 50, 표준편차 10이 되게 바꾼 값입니다. 그래서 같은 구간·역할 안에서는 맵끼리 지수를 바로 비교할 수 있지만, 구간이나 역할끼리 지수를 비교하는 용도는 아닙니다.</p>
-        <h4>맵별 메타 조합</h4>
-        <p>한눈에 보기의 맵 카드는 선택한 서버의 전체 티어에서 그 맵의 역할별 메타 지수 상위 영웅을 돌격 1명, 공격 2명, 지원 2명으로 뽑은 조합입니다. 역할마다 따로 순위를 매기므로 실제 경기에서 함께 쓰인 조합이라는 뜻은 아닙니다. ★는 전체 맵 종합 조합(돌격 1·공격 2·지원 2)에는 없지만 그 맵 조합에 들어온 영웅입니다. 카드의 영웅에 마우스를 올리면 전체 맵 대비 지수 차이가 나옵니다. 한눈에 보기 티어표의 ▲▼는 상세 화면과 같은 기준의 티어 변동입니다.</p>
+      </div>
+      <div class="m-card">
         <h4>티어 기준</h4>
-        <p>S 62 이상, A 55~61, B 46~54, C 40~45, D 39 이하.</p>
-        <h4>읽을 때 주의할 점</h4>
-        <p class="muted">돌격은 팀당 한 명이라 픽률 합이 100%이고 공격·지원은 200%입니다. 승률에는 팀 조합과 숙련도가 섞여 있고, 아주 많이 쓰이는 영웅은 승률이 50% 근처로 모이기 쉽습니다. 밴률에는 성능뿐 아니라 상대하기 싫은 정도도 들어 있습니다. 공식 통계는 가장 최근 패치 이후 데이터라서, 패치 직후에는 표본이 작아 보정 비중이 커집니다.</p>
+        <p class="m-tiers"><span class="tp"><span class="badge t-S">S</span>62 이상</span><span class="tp"><span class="badge t-A">A</span>55~61</span><span class="tp"><span class="badge t-B">B</span>46~54</span><span class="tp"><span class="badge t-C">C</span>40~45</span><span class="tp"><span class="badge t-D">D</span>39 이하</span></p>
+        <h4>데이터</h4>
+        <ul class="m-list">
+          <li>한국: 넥슨 영웅 통계 / 아시아·아메리카·유럽: 블리자드 영웅 통계</li>
+          <li>경쟁전 역할 고정, PC, 8개 등급 × 전체 맵·맵별</li>
+          <li>구간은 등급 합산: 하위(브론즈~골드), 중위(플래티넘~다이아), 상위(마스터 이상), 전체(모든 등급)</li>
+          <li>픽률·밴률은 경기 수로, 승률은 플레이된 판 수로 가중 평균</li>
+        </ul>
+        <h4>자동 갱신</h4>
+        <ul class="m-list">
+          <li>GitHub Actions가 6시간마다 수집·계산하고, 수치가 바뀐 경우에만 반영</li>
+          <li>맵·영웅 목록도 매번 새로 읽어 새 시즌에 자동 대응</li>
+        </ul>
+      </div>
+      <div class="m-card">
+        <h4>추정 경기 수</h4>
+        <ul class="m-list">
+          <li>공식 통계는 경기 수를 공개하지 않아 추정합니다.</li>
+          <li>그랜드마스터: 밴률의 0.1% 단위 표시로 역산</li>
+          <li>마스터: 그랜드마스터와의 로그 회귀</li>
+          <li>브론즈~다이아: 전체 등급 수치로 등급 비중을 풀어 환산(오차 10~25%)</li>
+          <li>표본 신뢰도: 600경기 이상 높음, 150~599 보통, 150 미만 낮음</li>
+        </ul>
+        <h4>표본 보정</h4>
+        <ul class="m-list">
+          <li>경기가 적은 맵의 수치를 사전값 쪽으로 당깁니다.</li>
+          <li>사전값 = 그 영웅의 서버 전체 맵 성적 × 해외 같은 구간의 맵 경향</li>
+          <li>무게: 픽률·밴률 40경기, 승률 80판</li>
+          <li>상세 화면에서 끄면 원본 수치로 계산</li>
+        </ul>
+      </div>
+      <div class="m-card">
+        <h4>화면 표시</h4>
+        <ul class="m-list">
+          <li><b>맵 카드</b>: 그 맵의 역할별 지수 상위 돌격 1·공격 2·지원 2 (역할마다 따로 뽑은 것이라 실제 함께 쓰인 조합은 아님)</li>
+          <li><b>★</b>: 전체 맵 조합에는 없지만 그 맵 조합에 들어온 영웅</li>
+          <li><b>▲▼</b>: 직전 기록 대비 티어 변동(기본 가중치·보정 기준)</li>
+          <li><b>패치 감지</b>: 경기 수가 직전의 70% 아래로 떨어지면 새 패치로 보고 지난 패치 마지막 기록과 비교</li>
+        </ul>
+        <h4>주의할 점</h4>
+        <ul class="m-list muted">
+          <li>돌격 픽률 합은 100%, 공격·지원은 200%</li>
+          <li>픽률이 아주 높은 영웅은 승률이 50% 근처로 모이기 쉬움</li>
+          <li>밴률에는 성능 외에 상대하기 싫은 정도도 섞임</li>
+          <li>패치 직후에는 표본이 작아 보정 비중이 큼</li>
+        </ul>
       </div>
     </div>
-    <p class="foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다. 수집 시각은 이 페이지 맨 위에 표시됩니다.</p>
+    <p class="foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다.</p>
   </section>
   </div>
 </div>
@@ -916,7 +964,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 
   function renderConsts(){
     const f = (x, d) => x.toFixed(d);
-    let h = `<caption>${esc(BK().label)} 구간 기준</caption><thead><tr><th>역할</th><th>σ승률</th><th>μ픽률</th><th>σ픽률</th><th>μ밴률</th><th>σ밴률</th></tr></thead><tbody>`;
+    let h = `<caption>현재 상수 (${esc(BK().label)} 구간)</caption><thead><tr><th>역할</th><th>σ승률</th><th>μ픽률</th><th>σ픽률</th><th>μ밴률</th><th>σ밴률</th></tr></thead><tbody>`;
     for (const [k, label] of ROLES) {
       const c = consts(k);
       h += `<tr><td>${label}</td><td>${f(c.wr_sd,2)}</td><td>${f(c.pr_mu,2)}</td><td>${f(c.pr_sd,2)}</td><td>${f(c.br_mu,2)}</td><td>${f(c.br_sd,2)}</td></tr>`;
