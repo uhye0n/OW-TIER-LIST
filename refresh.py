@@ -42,6 +42,7 @@ SERVERS = [  # id, label, source, source region value
 PRIOR_SERVERS = ["asia", "americas", "europe"]   # pooled for map-effect priors
 RANKS = ["bronze", "silver", "gold", "platinum", "emerald", "diamond", "master", "grandmaster"]
 GROUPS = [  # id, label, rank label, ranks
+    ("all", "전체", "브론즈~챔피언 전체", RANKS),
     ("high", "상위", "마스터·그랜드마스터·챔피언", ["master", "grandmaster"]),
     ("mid", "중위", "플래티넘·에메랄드·다이아몬드", ["platinum", "emerald", "diamond"]),
     ("low", "하위", "브론즈·실버·골드", ["bronze", "silver", "gold"]),

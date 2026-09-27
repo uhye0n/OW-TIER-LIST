@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>오버워치 티어 리스트</title>
-<meta name="description" content="넥슨 오버워치 영웅 통계로 계산한 한국 경쟁전 하위·중위·상위 구간 맵별 영웅 메타 티어">
+<meta name="description" content="넥슨·블리자드 오버워치 공식 영웅 통계로 계산한 경쟁전 맵별 메타 조합과 영웅 티어">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -220,6 +220,73 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
 .ctable caption{text-align:left;font-size:12.5px;color:var(--muted);padding-bottom:4px}
 .detail .muted{color:var(--faint)}
 [aria-busy="true"]{opacity:.55}
+
+/* view tabs */
+.viewtabs{display:flex;gap:4px;margin-top:18px;border-bottom:1px solid var(--line)}
+.viewtabs button{border:0;background:transparent;padding:10px 16px 11px;font-size:15px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px}
+.viewtabs button:hover{color:var(--ink)}
+.viewtabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+body[data-view="home"] #seg,body[data-view="home"] #detailView,body[data-view="home"] #method{display:none}
+body[data-view="detail"] #homeView{display:none}
+.seg-b button .rk.mini img{width:17px;height:17px}
+
+/* landing */
+.home-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin:22px 0 4px}
+.home-head h2{font-family:var(--display);font-weight:400;font-size:clamp(28px,4vw,40px);line-height:1.08;margin:0}
+.home-sub{margin:0 0 16px;color:var(--muted);font-size:14px;max-width:84ch}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.mode-h{grid-column:1/-1;display:flex;align-items:baseline;gap:10px;margin:14px 0 -2px;font-size:15px;font-weight:700}
+.mode-h span{font-size:12.5px;font-weight:500;color:var(--muted)}
+.mcard{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:12px;min-height:212px;padding:14px 14px 12px;border:0;overflow:hidden;cursor:pointer;text-align:left;color:#fff;background:#1B2331;isolation:isolate;--shade:rgba(9,13,21,.9)}
+.mcard .bg{position:absolute;inset:0;z-index:-2;display:flex}
+.mcard .bg img{flex:1;min-width:0;width:100%;height:100%;object-fit:cover;transition:transform .35s ease}
+.mcard::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(9,13,21,.30) 0%,rgba(9,13,21,.48) 38%,var(--shade) 78%)}
+.mcard:hover .bg img{transform:scale(1.05)}
+.mcard:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.mtop{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.mname{font-family:var(--display);font-size:25px;line-height:1.05;text-shadow:0 1px 8px rgba(0,0,0,.55)}
+.mmeta{flex:none;font-size:11.5px;font-weight:600;background:rgba(9,13,21,.62);padding:2px 8px;color:rgba(255,255,255,.85);white-space:nowrap}
+.lineup{display:grid;grid-template-columns:1fr 2fr 2fr;gap:8px}
+.grp{display:flex;flex-direction:column;gap:5px;min-width:0}
+.gl{font-size:11px;font-weight:700;letter-spacing:.04em;color:rgba(255,255,255,.72);border-bottom:1px solid rgba(255,255,255,.28);padding-bottom:2px}
+.gs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px}
+.slot{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.face{position:relative;width:48px;height:48px;border-radius:50%;background:#2A3446;box-shadow:0 0 0 2.5px var(--tc),0 2px 10px rgba(0,0,0,.45);display:grid;place-items:center;font-weight:700}
+.face img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
+.face .tb{position:absolute;right:-6px;bottom:-4px;min-width:19px;height:19px;padding:0 4px;display:grid;place-items:center;font-family:var(--display);font-weight:400;font-size:12.5px;line-height:1;background:var(--tc);color:var(--tci);clip-path:polygon(3px 0,100% 0,calc(100% - 3px) 100%,0 100%)}
+.face .spec{position:absolute;left:-5px;top:-5px;width:17px;height:17px;border-radius:50%;display:grid;place-items:center;font-size:9px;background:#fff;color:#C8323A;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.hn{max-width:100%;font-size:12.5px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 4px rgba(0,0,0,.7)}
+.mcard.total{grid-column:1/-1;min-height:300px;padding:20px 22px 18px;--shade:rgba(9,13,21,.93)}
+.mcard.total .bg img{clip-path:polygon(9% 0,100% 0,91% 100%,0 100%);margin:0 -2.2%}
+.mcard.total .bg img:first-child{clip-path:polygon(0 0,100% 0,91% 100%,0 100%);margin-left:0}
+.mcard.total .bg img:last-child{clip-path:polygon(9% 0,100% 0,100% 100%,0 100%);margin-right:0}
+.mcard.total .mname{font-size:clamp(30px,4vw,42px)}
+.mcard.total .lineup{max-width:760px;gap:14px}
+.mcard.total .face{width:66px;height:66px}
+.mcard.total .face .tb{min-width:23px;height:23px;font-size:15px}
+.mcard.total .hn{font-size:14px}
+.mcard.total .gl{font-size:12px}
+.next{display:block;margin-top:2px;font-size:11.5px;color:rgba(255,255,255,.7);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.home-legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:14px 0 0;font-size:12.5px;color:var(--muted)}
+.home-legend b{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;background:#fff;color:#C8323A;font-size:8px;box-shadow:0 0 0 1px var(--line);margin-right:5px;vertical-align:-2px}
+.home-foot{margin-top:18px;font-size:12.5px;color:var(--muted)}
+.home-foot a,.home-foot button.linklike{color:inherit}
+button.linklike{border:0;background:none;padding:0;text-decoration:underline;cursor:pointer;font-size:inherit}
+@media (max-width: 560px){
+  .mgrid{grid-template-columns:minmax(0,1fr)}
+  .mcard{min-height:196px;padding:12px 12px 10px}
+  .mname{font-size:22px}
+  .face{width:44px;height:44px}
+  .mcard.total{padding:16px 14px 14px;min-height:260px}
+  .mcard.total .lineup{gap:8px}
+  .mcard.total .face{width:52px;height:52px}
+  .mcard.total .hn{font-size:12.5px}
+  .next{display:none}
+  .viewtabs button{flex:1;padding:10px 8px 11px}
+  .seg-b{grid-template-columns:repeat(4,1fr)!important}
+  .seg-b button .rk.mini img{width:13px;height:13px}
+}
+@media (prefers-reduced-motion: reduce){ .mcard .bg img{transition:none} .mcard:hover .bg img{transform:none} }
 </style>
 </head>
 <body>
@@ -227,7 +294,7 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
   <header class="top">
     <div>
       <h1>오버워치 티어 리스트</h1>
-      <p class="scope">넥슨(한국)과 블리자드(아시아·아메리카·유럽) 공식 영웅 통계의 경쟁전 역할 고정 PC 데이터를 하위(브론즈·실버·골드), 중위(플래티넘·에메랄드·다이아몬드), 상위(마스터·그랜드마스터·챔피언) 세 구간으로 묶어, 맵마다 픽률, 승률, 밴률을 하나의 메타 지수로 계산하고 역할별로 S부터 D까지 나눴습니다.</p>
+      <p class="scope">넥슨(한국)과 블리자드(아시아·아메리카·유럽) 공식 영웅 통계의 경쟁전 역할 고정 PC 데이터를 전체 티어와 하위(브론즈·실버·골드), 중위(플래티넘·에메랄드·다이아몬드), 상위(마스터·그랜드마스터·챔피언) 구간으로 묶어, 맵마다 픽률, 승률, 밴률을 하나의 메타 지수로 계산하고 역할별로 S부터 D까지 나눴습니다.</p>
       <p class="fresh"><span class="live" aria-hidden="true"></span><span id="freshText"></span></p>
     </div>
     <div class="controls">
@@ -249,6 +316,21 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
     </div>
   </header>
 
+  <nav class="viewtabs" role="tablist" aria-label="화면">
+    <button type="button" role="tab" data-view="home" aria-selected="true">맵별 메타</button>
+    <button type="button" role="tab" data-view="detail" aria-selected="false">상세 티어표</button>
+  </nav>
+
+  <section id="homeView">
+    <div class="home-head"><h2 id="homeTitle">맵별 메타 조합</h2><span class="sample" id="homeSample"></span></div>
+    <p class="home-sub" id="homeSub"></p>
+    <p class="patch-note" id="homePatch" hidden></p>
+    <div class="mgrid" id="mgrid"></div>
+    <div class="home-legend"><span>테두리와 글자: 영웅의 역할 안 티어</span><span><b>▲</b>전체 맵 종합 조합에는 없지만 이 맵에서 들어온 영웅</span></div>
+    <p class="home-foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다. <button type="button" class="linklike" data-view="detail" data-anchor="method">계산 방식 보기</button></p>
+  </section>
+
+  <div id="detailView">
   <div class="layout">
     <nav class="rail" aria-label="맵 선택" id="rail"></nav>
     <main>
@@ -283,13 +365,14 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
     <p class="hint">행은 선택한 역할의 영웅(종합 지수 순), 열은 맵입니다. 칸이나 맵 이름을 누르면 위 티어표가 그 맵으로 바뀝니다.</p>
     <div class="heat-wrap"><table class="heat" id="heat"></table></div>
   </section>
+  </div>
 
   <section class="panel method" id="method">
     <h3>계산 방식</h3>
     <div class="cols">
       <div>
         <h4>데이터</h4>
-        <p>한국은 넥슨 오버워치 영웅 통계, 아시아·아메리카·유럽은 블리자드 오버워치 영웅 통계에서 경쟁전 역할 고정, PC 조건으로 브론즈부터 그랜드마스터 및 챔피언까지 여덟 개 등급의 전체 전장과 맵별 수치를 가져옵니다. 공식 필터에는 여러 등급을 묶은 구간이 없어서, 하위·중위·상위는 소속 등급을 합산해 만들었습니다. 한국은 아시아와 따로 집계되는 것으로 보여 별도 서버로 다룹니다.</p>
+        <p>한국은 넥슨 오버워치 영웅 통계, 아시아·아메리카·유럽은 블리자드 오버워치 영웅 통계에서 경쟁전 역할 고정, PC 조건으로 브론즈부터 그랜드마스터 및 챔피언까지 여덟 개 등급의 전체 전장과 맵별 수치를 가져옵니다. 공식 필터에는 여러 등급을 묶은 구간이 없어서, 하위·중위·상위는 소속 등급을, 전체는 여덟 개 등급을 모두 합산해 만들었습니다. 한국은 아시아와 따로 집계되는 것으로 보여 별도 서버로 다룹니다.</p>
         <h4>자동 갱신</h4>
         <p>넥슨 통계는 다른 사이트에서 직접 불러올 수 없게 막혀 있어서, 이 페이지를 열 때 넥슨을 바로 조회하지는 않습니다. 대신 GitHub Actions가 6시간마다 네 서버의 통계 화면 약 1,000개를 새로 수집하고, 수치가 바뀌었으면 아래 방식으로 다시 계산해 이 페이지에 반영합니다. 수치가 그대로면 페이지도 그대로 둡니다. 맵과 영웅 목록도 매번 넥슨 필터에서 새로 읽기 때문에, 시즌이 바뀌어 맵이나 영웅이 추가되면 자동으로 따라갑니다.</p>
         <h4>변동 표시와 패치</h4>
@@ -297,7 +380,7 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
         <h4>추정 경기 수</h4>
         <p>공식 페이지는 경기 수를 공개하지 않습니다. 밴률이 0.1% 단위로 표시된다는 점을 이용해, 그 맵의 모든 밴률을 설명할 수 있는 가장 작은 경기 수를 역산했습니다. 서버마다 그랜드마스터 및 챔피언은 이 방법으로 맵별 경기 수를 구하고, 마스터는 그 경기 수와의 관계식(로그 회귀)으로 추정합니다.</p><p>브론즈부터 다이아몬드까지는 경기가 너무 많아 이 방법이 통하지 않습니다. 대신 모든 등급 수치가 각 등급 수치를 경기 수로 가중 평균한 값이라는 점을 이용해 등급별 경기 비중을 풀고, 그랜드마스터 및 챔피언 경기 수를 기준으로 환산했습니다. 이 비중 추정은 오차가 10~25% 정도라서, 하위·중위의 경기 수는 규모를 가늠하는 참고값으로 보세요. 신뢰도 표시는 600경기 이상 높음, 150~599 보통, 150 미만 낮음입니다.</p>
         <h4>구간 합산</h4>
-        <p>픽률과 밴률은 구간 안의 등급들을 맵별 추정 경기 수로 가중 평균했고, 승률은 각 등급에서 그 영웅이 플레이된 판 수로 가중 평균했습니다. 경기가 많은 등급(하위는 골드, 중위는 플래티넘, 상위는 마스터)의 영향을 더 크게 받습니다. 표에서 원본이라고 표시한 값도 이 합산값입니다.</p>
+        <p>픽률과 밴률은 구간 안의 등급들을 맵별 추정 경기 수로 가중 평균했고, 승률은 각 등급에서 그 영웅이 플레이된 판 수로 가중 평균했습니다. 경기가 많은 등급(전체는 골드·플래티넘, 하위는 골드, 중위는 플래티넘, 상위는 마스터)의 영향을 더 크게 받습니다. 표에서 원본이라고 표시한 값도 이 합산값입니다.</p>
         <h4>표본 보정</h4>
         <p>경기 수가 적은 맵은 몇 판만으로 승률이 크게 흔들립니다. 그래서 각 수치를 사전값과 가중평균했습니다. 사전값은 그 영웅의 해당 서버 전체 맵 성적에, 아시아·아메리카·유럽을 합친 같은 구간 데이터에서 드러난 그 맵의 경향을 반영한 값입니다. 하위 구간은 해외 하위 구간의 맵 경향을, 상위 구간은 해외 상위 구간의 맵 경향을 쓰는 식입니다. 픽률과 밴률은 40경기, 승률은 그 영웅의 80판만큼의 무게를 사전값에 줍니다. 상단의 표본 보정을 끄면 원본 수치로 계산합니다.</p>
       </div>
@@ -313,19 +396,22 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
         <p>상수는 구간·역할마다 아시아·아메리카·유럽을 합친 같은 구간 데이터의 분포로 정하고, 갱신할 때마다 다시 계산합니다.</p>
         <div class="table-wrap"><table class="ctable" id="ctable"></table></div>
         <p>종합 점수는 선택한 구간과 역할 안에서 모든 맵·영웅 분포를 기준으로 평균 50, 표준편차 10이 되게 바꾼 값입니다. 그래서 같은 구간·역할 안에서는 맵끼리 지수를 바로 비교할 수 있지만, 구간이나 역할끼리 지수를 비교하는 용도는 아닙니다.</p>
+        <h4>맵별 메타 조합</h4>
+        <p>첫 화면의 맵 카드는 선택한 서버와 구간에서 그 맵의 역할별 메타 지수 상위 영웅을 돌격 1명, 공격 2명, 지원 2명으로 뽑은 조합입니다. 역할마다 따로 순위를 매기므로 실제 경기에서 함께 쓰인 조합이라는 뜻은 아닙니다.</p>
         <h4>티어 기준</h4>
         <p>S 62 이상, A 55~61, B 46~54, C 40~45, D 39 이하.</p>
         <h4>읽을 때 주의할 점</h4>
         <p class="muted">돌격은 팀당 한 명이라 픽률 합이 100%이고 공격·지원은 200%입니다. 승률에는 팀 조합과 숙련도가 섞여 있고, 아주 많이 쓰이는 영웅은 승률이 50% 근처로 모이기 쉽습니다. 밴률에는 성능뿐 아니라 상대하기 싫은 정도도 들어 있습니다. 공식 통계는 가장 최근 패치 이후 데이터라서, 패치 직후에는 표본이 작아 보정 비중이 커집니다.</p>
       </div>
     </div>
-    <p class="foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>. 영웅 초상화와 등급 아이콘은 Blizzard Entertainment의 저작물입니다. 수집 시각은 페이지 상단에 표시됩니다.</p>
+    <p class="foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다. 수집 시각은 페이지 상단에 표시됩니다.</p>
   </section>
 </div>
 
 <script>
 (function(){
   const RANK_ICONS = {
+    all: [['bronze','브론즈'],['gold','골드'],['diamond','다이아몬드'],['champion','챔피언']],
     low: [['bronze','브론즈'],['silver','실버'],['gold','골드']],
     mid: [['platinum','플래티넘'],['emerald','에메랄드'],['diamond','다이아몬드']],
     high: [['master','마스터'],['grandmaster','그랜드마스터'],['champion','챔피언']]
@@ -343,10 +429,11 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
 
   let INDEX = null, D = null, H = [], MAPS = [], MAP_IDS = [], ALL_IDS = [], MODES = [], MAP_BY_ID = {}, BRS = [];
   const CACHE = {};
-  const state = {server:'kr', bracket:'high', role:'tank', map:'all-maps', focus:null, w:Object.assign({}, DEFAULT_W), smooth:true, sort:{key:'mi', dir:-1}};
+  // the first screen is always the map overview for all ranks; the rest of the settings are remembered
+  const state = {view:'home', server:'kr', bracket:'all', role:'tank', map:'all-maps', focus:null, w:Object.assign({}, DEFAULT_W), smooth:true, sort:{key:'mi', dir:-1}};
   const saved = store.get('state');
   if (saved) {
-    for (const k of ['server','bracket','role','map']) if (typeof saved[k] === 'string') state[k] = saved[k];
+    for (const k of ['server','role','map']) if (typeof saved[k] === 'string') state[k] = saved[k];
     if (saved.w && ['wr','pr','br'].every(k => typeof saved.w[k] === 'number')) state.w = saved.w;
     if (typeof saved.smooth === 'boolean') state.smooth = saved.smooth;
   }
@@ -366,7 +453,7 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
     D = d; H = d.heroes; MAPS = d.maps; MAP_IDS = MAPS.map(m => m.id); ALL_IDS = ['all-maps'].concat(MAP_IDS);
     MODES = (d.modes && d.modes.length) ? d.modes : Array.from(new Set(MAPS.map(m => m.mode)));
     MAP_BY_ID = Object.fromEntries(MAPS.map(m => [m.id, m])); BRS = d.brackets;
-    if (!BRS.some(x => x.id === state.bracket)) state.bracket = (BRS.find(x => x.id === 'high') || BRS[0]).id;
+    if (!BRS.some(x => x.id === state.bracket)) state.bracket = (BRS.find(x => x.id === 'all') || BRS.find(x => x.id === 'high') || BRS[0]).id;
     if (!ALL_IDS.includes(state.map)) state.map = 'all-maps';
     if (!d.roles[state.role]) state.role = 'tank';
   }
@@ -402,14 +489,16 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
   }
 
   let MI = {}, MI0 = {}, IDX = [], PREV = null;
-  function miFor(w, smooth){
-    const C = consts(state.role);
+  function miFor(w, smooth, role){
+    role = role || state.role;
+    const idx = H.map((h, i) => i).filter(i => H[i].role === role);
+    const C = consts(role);
     const ww = weights(w);
     const cells = BK().cells;
     const comp = {}, pool = [];
     for (const m of ALL_IDS) {
       const arr = new Array(H.length).fill(NaN);
-      for (const i of IDX) {
+      for (const i of idx) {
         const z = comps(vals(cells[m][i], smooth), C);
         arr[i] = ww[0]*z[0] + ww[1]*z[1] + ww[2]*z[2];
         if (m !== 'all-maps') pool.push(arr[i]);
@@ -446,10 +535,12 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
   function renderControls(){
     $('segS').innerHTML = INDEX.servers.map(s =>
       `<button type="button" data-server="${s.id}" aria-pressed="${state.server === s.id}">${esc(s.label)}</button>`).join('');
-    const order = ['low', 'mid', 'high'];
+    const order = ['all', 'low', 'mid', 'high'];
     const brs = BRS.slice().sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
     $('segB').innerHTML = brs.map(x =>
-      `<button type="button" data-bracket="${x.id}" aria-pressed="${state.bracket === x.id}" title="${esc(x.label)}: ${esc(x.ranks)}"><span class="bl">${esc(x.label)}</span><span class="rk">${(RANK_ICONS[x.id] || []).map(([f, n]) => `<img src="assets/ranks/${f}.png" alt="${n}" width="26" height="26" loading="lazy">`).join('')}</span></button>`).join('');
+      `<button type="button" data-bracket="${x.id}" aria-pressed="${state.bracket === x.id}" title="${esc(x.label)}: ${esc(x.ranks)}"><span class="bl">${esc(x.label)}</span><span class="rk${x.id === 'all' ? ' mini' : ''}">${(RANK_ICONS[x.id] || []).map(([f, n]) => `<img src="assets/ranks/${f}.png" alt="${n}" width="26" height="26" loading="lazy">`).join('')}</span></button>`).join('');
+    for (const b of document.querySelectorAll('.viewtabs [data-view]')) b.setAttribute('aria-selected', String(b.dataset.view === state.view));
+    document.body.dataset.view = state.view;
     $('seg').innerHTML = ROLES.map(([k, label]) =>
       `<button type="button" data-role="${k}" aria-pressed="${state.role === k}">${label}</button>`).join('');
     $('smooth').checked = state.smooth;
@@ -490,8 +581,61 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
     }
     const ratio = meta.sampleRatio && meta.sampleRatio[state.bracket];
     if (ratio != null && ratio < 0.5) parts.push(`이 구간의 경기 수가 아직 지난 패치의 ${Math.round(ratio * 100)}% 수준이라 티어가 크게 바뀔 수 있습니다.`);
-    el.hidden = !parts.length;
-    el.textContent = parts.join(' ');
+    for (const e of [el, $('homePatch')]) { e.hidden = !parts.length; e.textContent = parts.join(' '); }
+  }
+
+  // ---- first screen: one card per map with the top tank, two damage and two support heroes
+  function renderHome(){
+    const B = BK();
+    const MR = {};
+    for (const [r] of ROLES) MR[r] = miFor(state.w, state.smooth, r);
+    const byRole = {};
+    for (const [r] of ROLES) byRole[r] = H.map((h, i) => i).filter(i => H[i].role === r);
+    const ranked = (m, r) => byRole[r].slice().sort((a, b) => MR[r][m][b] - MR[r][m][a]);
+    const SLOTS = {tank:1, damage:2, support:2};
+    const baseTop = {};
+    for (const [r] of ROLES) baseTop[r] = new Set(ranked('all-maps', r).slice(0, SLOTS[r]));
+    const face = (m, r, i) => {
+      const v = MR[r][m][i], t = tierOf(v);
+      const up = m !== 'all-maps' && !baseTop[r].has(i);   // in this map's lineup but not in the all-maps one
+      const d = m === 'all-maps' ? 0 : v - MR[r]['all-maps'][i];
+      const img = H[i].img ? `<img src="${esc(H[i].img)}" alt="" width="48" height="48" loading="lazy" decoding="async" onerror="this.remove()">` : esc(H[i].name.slice(0, 1));
+      const spec = up ? `<span class="spec" aria-hidden="true">▲</span>` : '';
+      const tip = `${H[i].name}: ${t} (${Math.round(v)})` + (m !== 'all-maps' ? `, 전체 맵 대비 ${d >= 0 ? '+' : '−'}${Math.abs(Math.round(d))}` : '');
+      return `<span class="slot" title="${esc(tip)}"><span class="face t-${t}">${img}<b class="tb">${t}</b>${spec}</span><span class="hn">${esc(H[i].name)}</span></span>`;
+    };
+    const lineup = (m, withNext) => `<span class="lineup">${ROLES.map(([r, label]) => {
+      const order = ranked(m, r);
+      const top = order.slice(0, SLOTS[r]);
+      const next = withNext ? order.slice(SLOTS[r], SLOTS[r] + 2).map(i => `${H[i].name} ${tierOf(MR[r][m][i])}`).join(', ') : '';
+      return `<span class="grp"><span class="gl">${label}</span><span class="gs">${top.map(i => face(m, r, i)).join('')}</span>${next ? `<span class="next">다음: ${esc(next)}</span>` : ''}</span>`;
+    }).join('')}</span>`;
+    const names = m => ROLES.map(([r]) => ranked(m, r).slice(0, SLOTS[r]).map(i => H[i].name).join(', ')).join(' / ');
+    const bgImg = id => `<img src="assets/maps/${esc(id)}.jpg" alt="" loading="lazy" decoding="async" onerror="this.remove()">`;
+
+    const pickBg = MODES.map(mode => (MAPS.find(x => x.mode === mode) || {}).id).filter(Boolean).slice(0, 5);
+    let html = `<button type="button" class="mcard total" data-go="all-maps" aria-label="전체 맵 종합 상세 티어 보기. 메타 조합 ${esc(names('all-maps'))}">
+      <span class="bg" aria-hidden="true">${pickBg.map(bgImg).join('')}</span>
+      <span class="mtop"><span class="mname">전체 맵 종합</span><span class="mmeta">${MAP_IDS.length}개 맵 · 추정 ${fmtInt(B.N['all-maps'])}경기</span></span>
+      ${lineup('all-maps', true)}
+    </button>`;
+    for (const mode of MODES) {
+      const ms = MAPS.filter(x => x.mode === mode);
+      if (!ms.length) continue;
+      html += `<h3 class="mode-h">${esc(mode)}<span>${ms.length}개 맵</span></h3>`;
+      for (const m of ms) {
+        const n = B.N[m.id]; const [, rl] = relOf(n);
+        html += `<button type="button" class="mcard" data-go="${m.id}" aria-label="${esc(m.name)} 상세 티어 보기. 메타 조합 ${esc(names(m.id))}">
+          <span class="bg" aria-hidden="true">${bgImg(m.id)}</span>
+          <span class="mtop"><span class="mname">${esc(m.name)}</span><span class="mmeta" title="표본 신뢰도 ${rl}">추정 ${fmtInt(n)}경기</span></span>
+          ${lineup(m.id, false)}
+        </button>`;
+      }
+    }
+    $('mgrid').innerHTML = html;
+    $('homeSample').textContent = `${D.meta.label} ${B.label}(${B.ranks}), 추정 ${fmtInt(B.N['all-maps'])}경기`;
+    $('homeSub').textContent = `맵마다 역할별 메타 지수가 가장 높은 돌격 1명, 공격 2명, 지원 2명입니다. 카드를 누르면 그 맵의 상세 티어표로 넘어갑니다.`
+      + (state.smooth ? '' : ' 표본 보정이 꺼져 있어 경기 수가 적은 맵은 순위가 흔들릴 수 있습니다.');
   }
 
   function renderBoard(){
@@ -712,22 +856,32 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
   function renderAll(){
     compute();
     renderControls();
-    renderRail();
     renderPatch();
-    renderBoard();
-    renderScatter();
-    renderTable();
-    renderHeat();
-    renderConsts();
     renderFresh();
-    store.set('state', {server:state.server, bracket:state.bracket, role:state.role, map:state.map, w:state.w, smooth:state.smooth});
+    if (state.view === 'home') renderHome();
+    else { renderRail(); renderBoard(); renderScatter(); renderTable(); renderHeat(); renderConsts(); }
+    store.set('state', {server:state.server, role:state.role, map:state.map, w:state.w, smooth:state.smooth});
   }
   function lightRender(){ renderBoard(); renderScatter(); renderTable(); renderHeat(); }
+  function setView(v, opts){
+    opts = opts || {};
+    if (v !== 'home' && v !== 'detail') v = 'home';
+    const changed = state.view !== v;
+    state.view = v;
+    if (changed && !opts.fromHistory) history.pushState({view:v}, '', v === 'detail' ? '#tier' : location.pathname + location.search);
+    if (D) renderAll();
+    if (opts.anchor) { const el = $(opts.anchor); if (el) el.scrollIntoView({block:'start'}); }
+    else if (changed) window.scrollTo(0, 0);
+  }
   function scrollToBoard(){ $('boardPanel').scrollIntoView({behavior: reduceMotion ? 'auto' : 'smooth', block:'start'}); }
   function fail(e){ $('board').textContent = `데이터를 불러오지 못했습니다(${e.message}). 잠시 후 새로고침해 주세요.`; }
 
   document.addEventListener('click', e => {
     const t = e.target;
+    const goEl = t.closest('[data-go]');
+    if (goEl) { state.map = goEl.dataset.go; state.focus = null; setView('detail'); return; }
+    const viewEl = t.closest('[data-view]');
+    if (viewEl && viewEl.tagName === 'BUTTON') { setView(viewEl.dataset.view, {anchor: viewEl.dataset.anchor}); return; }
     const svEl = t.closest('[data-server]');
     if (svEl) { if (svEl.dataset.server !== state.server) loadServer(svEl.dataset.server).then(renderAll).catch(fail); return; }
     const bkEl = t.closest('[data-bracket]');
@@ -757,6 +911,10 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
   }
   $('wreset').addEventListener('click', () => { state.w = Object.assign({}, DEFAULT_W); renderAll(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { const d = $('weights'); if (d.open) d.open = false; } });
+
+  if (location.hash === '#tier') state.view = 'detail';
+  window.addEventListener('popstate', () => setView(location.hash === '#tier' ? 'detail' : 'home', {fromHistory:true}));
+  document.body.dataset.view = state.view;
 
   fetch('data/index.json?t=' + Math.floor(Date.now() / 6e5), {cache:'no-cache'})
     .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
