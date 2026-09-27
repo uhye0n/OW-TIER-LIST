@@ -261,13 +261,17 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
 }
 
 /* view tabs */
-body[data-view="home"] #seg,body[data-view="home"] #segB,body[data-view="home"] #detailView,body[data-view="home"] #method,body[data-view="home"] .row2{display:none}
+body[data-view="home"] #seg,body[data-view="home"] #segB,body[data-view="home"] .row2{display:none}
+body:not([data-view="home"]) #homeView,body:not([data-view="detail"]) #detailView,body:not([data-view="method"]) #methodView{display:none}
+body[data-view="method"] #seg,body[data-view="method"] .row2{display:none}
+.method-link{margin-left:auto;border:1px solid var(--line);background:var(--panel);padding:6px 12px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;align-self:center}
+.method-link:hover{background:var(--hl)}
+#method .fresh{margin:6px 0 4px}
 .crumb{display:flex;align-items:center;gap:12px;margin-top:18px;font-size:13.5px;color:var(--muted)}
 .crumb .back{border:1px solid var(--line);background:var(--panel);padding:7px 13px;font-weight:700;font-size:14px;cursor:pointer;color:var(--ink)}
 .crumb .back:hover{background:var(--hl)}
 .crumb span{font-weight:600}
-.crumb + .layout{margin-top:14px}
-body[data-view="detail"] #homeView{display:none}
+.crumb + .layout,.crumb + .panel{margin-top:14px}
 .seg-b button .rk.mini img{width:17px;height:17px}
 
 /* landing */
@@ -337,8 +341,6 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   <header class="top">
     <div>
       <h1>오버워치 티어 리스트</h1>
-      <p class="scope">넥슨(한국)과 블리자드(아시아·아메리카·유럽) 공식 영웅 통계의 경쟁전 역할 고정 PC 데이터로, 맵마다 픽률·승률·밴률을 메타 지수 하나로 합쳐 역할별 S~D 티어를 매깁니다.</p>
-      <p class="fresh"><span class="live" aria-hidden="true"></span><span id="freshText"></span></p>
     </div>
     <div class="controls">
       <div class="segs"><div class="seg" role="group" aria-label="서버" id="segS"></div></div>
@@ -364,7 +366,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 
 
   <section id="homeView">
-    <div class="home-head"><h2>한눈에 보기</h2><span class="sample" id="homeSample"></span></div>
+    <div class="home-head"><h2>한눈에 보기</h2><span class="sample" id="homeSample"></span><button type="button" class="method-link" data-view="method">계산 방식 보기 →</button></div>
     <p class="home-sub" id="homeBoardSub"></p>
     <p class="patch-note" id="homePatch" hidden></p>
     <p class="custom-note" id="homeCustom" hidden></p>
@@ -372,7 +374,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     <div class="home-head second"><h2>맵별 메타 조합</h2></div>
     <p class="home-sub" id="homeSub"></p>
     <div class="mgrid" id="mgrid"></div>
-    <p class="home-foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다. <button type="button" class="linklike" data-view="detail" data-anchor="method">계산 방식 보기</button></p>
+    <p class="home-foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다. </p>
   </section>
 
   <div id="detailView">
@@ -394,7 +396,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 
       <section class="panel">
         <h3>메타 지도</h3>
-        <p class="hint">가로는 픽률(로그 눈금), 세로는 승률, 원 크기는 밴률, 색은 티어입니다. 원을 누르면 해당 영웅이 표와 한눈에 보기에서 강조됩니다.</p>
+        <p class="hint">가로는 픽률(로그 눈금), 세로는 승률, 원 크기는 밴률, 색은 티어입니다. 원을 누르면 해당 영웅이 표와 맵별 티어 비교에서 강조됩니다.</p>
         <div id="scatter"></div>
       </section>
 
@@ -407,14 +409,17 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   </div>
 
   <section class="panel">
-    <h3>맵별 티어 한눈에 보기</h3>
+    <h3>맵별 티어 비교</h3>
     <p class="hint">행은 선택한 역할의 영웅(종합 지수 순), 열은 맵입니다. 칸이나 맵 이름을 누르면 위 티어표가 그 맵으로 바뀝니다.</p>
     <div class="heat-wrap"><table class="heat" id="heat"></table></div>
   </section>
   </div>
 
+  <div id="methodView">
+  <div class="crumb"><button type="button" class="back" data-view="home">← 한눈에 보기</button><span>계산 방식</span></div>
   <section class="panel method" id="method">
     <h3>계산 방식</h3>
+    <p class="fresh"><span class="live" aria-hidden="true"></span><span id="freshText"></span></p>
     <div class="cols">
       <div>
         <h4>데이터</h4>
@@ -443,15 +448,16 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         <div class="table-wrap"><table class="ctable" id="ctable"></table></div>
         <p>종합 점수는 선택한 구간과 역할 안에서 모든 맵·영웅 분포를 기준으로 평균 50, 표준편차 10이 되게 바꾼 값입니다. 그래서 같은 구간·역할 안에서는 맵끼리 지수를 바로 비교할 수 있지만, 구간이나 역할끼리 지수를 비교하는 용도는 아닙니다.</p>
         <h4>맵별 메타 조합</h4>
-        <p>첫 화면의 맵 카드는 선택한 서버와 구간에서 그 맵의 역할별 메타 지수 상위 영웅을 돌격 1명, 공격 2명, 지원 2명으로 뽑은 조합입니다. 역할마다 따로 순위를 매기므로 실제 경기에서 함께 쓰인 조합이라는 뜻은 아닙니다. ★는 전체 맵 종합 조합(돌격 1·공격 2·지원 2)에는 없지만 그 맵 조합에 들어온 영웅입니다. 카드의 영웅에 마우스를 올리면 전체 맵 대비 지수 차이가 나옵니다. 한눈에 보기 티어표의 ▲▼는 상세 화면과 같은 기준의 티어 변동입니다.</p>
+        <p>한눈에 보기의 맵 카드는 선택한 서버의 전체 티어에서 그 맵의 역할별 메타 지수 상위 영웅을 돌격 1명, 공격 2명, 지원 2명으로 뽑은 조합입니다. 역할마다 따로 순위를 매기므로 실제 경기에서 함께 쓰인 조합이라는 뜻은 아닙니다. ★는 전체 맵 종합 조합(돌격 1·공격 2·지원 2)에는 없지만 그 맵 조합에 들어온 영웅입니다. 카드의 영웅에 마우스를 올리면 전체 맵 대비 지수 차이가 나옵니다. 한눈에 보기 티어표의 ▲▼는 상세 화면과 같은 기준의 티어 변동입니다.</p>
         <h4>티어 기준</h4>
         <p>S 62 이상, A 55~61, B 46~54, C 40~45, D 39 이하.</p>
         <h4>읽을 때 주의할 점</h4>
         <p class="muted">돌격은 팀당 한 명이라 픽률 합이 100%이고 공격·지원은 200%입니다. 승률에는 팀 조합과 숙련도가 섞여 있고, 아주 많이 쓰이는 영웅은 승률이 50% 근처로 모이기 쉽습니다. 밴률에는 성능뿐 아니라 상대하기 싫은 정도도 들어 있습니다. 공식 통계는 가장 최근 패치 이후 데이터라서, 패치 직후에는 표본이 작아 보정 비중이 커집니다.</p>
       </div>
     </div>
-    <p class="foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다. 수집 시각은 페이지 상단에 표시됩니다.</p>
+    <p class="foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다. 수집 시각은 이 페이지 맨 위에 표시됩니다.</p>
   </section>
+  </div>
 </div>
 
 <script>
@@ -937,16 +943,17 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     renderPatch();
     renderFresh();
     if (state.view === 'home') renderHome();
-    else { renderRail(); renderBoard(); renderScatter(); renderTable(); renderHeat(); renderConsts(); }
+    else if (state.view === 'method') renderConsts();
+    else { renderRail(); renderBoard(); renderScatter(); renderTable(); renderHeat(); }
     store.set('state', {server:state.server, role:state.role, map:state.map, w:state.w, smooth:state.smooth});
   }
   function lightRender(){ renderBoard(); renderScatter(); renderTable(); renderHeat(); }
   function setView(v, opts){
     opts = opts || {};
-    if (v !== 'home' && v !== 'detail') v = 'home';
+    if (!['home', 'detail', 'method'].includes(v)) v = 'home';
     const changed = state.view !== v;
     state.view = v;
-    if (changed && !opts.fromHistory) history.pushState({view:v}, '', v === 'detail' ? '#tier' : location.pathname + location.search);
+    if (changed && !opts.fromHistory) history.pushState({view:v}, '', v === 'detail' ? '#tier' : v === 'method' ? '#method' : location.pathname + location.search);
     if (D) renderAll();
     if (opts.anchor) { const el = $(opts.anchor); if (el) el.scrollIntoView({block:'start'}); }
     else if (changed) window.scrollTo(0, 0);
@@ -963,7 +970,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       if (goEl.dataset.goRole) { state.role = goEl.dataset.goRole; state.focus = +goEl.dataset.goHero; }
       setView('detail'); return;
     }
-    if (t.closest('.crumb .back') && history.state && history.state.view === 'detail' && history.length > 1) { history.back(); return; }
+    if (t.closest('.crumb .back') && history.state && (history.state.view === 'detail' || history.state.view === 'method') && history.length > 1) { history.back(); return; }
     const viewEl = t.closest('[data-view]');
     if (viewEl && viewEl.tagName === 'BUTTON') { setView(viewEl.dataset.view, {anchor: viewEl.dataset.anchor}); return; }
     const svEl = t.closest('[data-server]');
@@ -1009,8 +1016,9 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   document.addEventListener('click', e => { if (e.target.id === 'homeReset') { state.w = Object.assign({}, DEFAULT_W); state.smooth = true; renderAll(); } });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { const d = $('weights'); if (d.open) d.open = false; } });
 
-  if (location.hash === '#tier') state.view = 'detail';
-  window.addEventListener('popstate', () => setView(location.hash === '#tier' ? 'detail' : 'home', {fromHistory:true}));
+  const viewFromHash = () => location.hash === '#tier' ? 'detail' : location.hash === '#method' ? 'method' : 'home';
+  state.view = viewFromHash();
+  window.addEventListener('popstate', () => setView(viewFromHash(), {fromHistory:true}));
   document.body.dataset.view = state.view;
 
   fetch('data/index.json?t=' + Math.floor(Date.now() / 6e5), {cache:'no-cache'})
