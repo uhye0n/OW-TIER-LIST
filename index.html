@@ -771,8 +771,9 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     }
     board += `</div>`;
     $('homeBoard').innerHTML = board;
-    $('homeBoardSub').innerHTML = `${MAP_IDS.length}개 맵을 합쳐 역할마다 따로 매긴 티어입니다.`
-      + (PREV ? ` <span class="mv up">▲</span><span class="mv down">▼</span> ${PREV.label} 대비 티어 변동.` : '');
+    const bs = $('homeBoardSub');
+    bs.innerHTML = PREV ? `<span class="mv up">▲</span><span class="mv down">▼</span> ${PREV.label} 대비 티어 변동` : '';
+    bs.hidden = !PREV;
 
     let html = '';
     for (const mode of MODES) {
