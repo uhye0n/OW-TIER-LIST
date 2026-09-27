@@ -292,39 +292,7 @@ body[data-view="method"] #seg,body[data-view="method"] .row2{display:none}
 .home-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin:22px 0 4px}
 .home-head h2{font-family:var(--display);font-weight:400;font-size:clamp(28px,4vw,40px);line-height:1.08;margin:0}
 .home-sub{margin:0 0 16px;color:var(--muted);font-size:14px;max-width:84ch}
-.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
-.mode-h{grid-column:1/-1;display:flex;align-items:baseline;gap:10px;margin:14px 0 -2px;font-size:15px;font-weight:700}
-.mode-h span{font-size:12.5px;font-weight:500;color:var(--muted)}
-.mcard{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:12px;min-height:212px;padding:14px 14px 12px;border:0;overflow:hidden;cursor:pointer;text-align:left;color:#fff;background:#1B2331;isolation:isolate;--shade:rgba(9,13,21,.9)}
-.mcard .bg{position:absolute;inset:0;z-index:-2;display:flex}
-.mcard .bg img{flex:1;min-width:0;width:100%;height:100%;object-fit:cover;transition:transform .35s ease}
-.mcard::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(9,13,21,.30) 0%,rgba(9,13,21,.48) 38%,var(--shade) 78%)}
-.mcard:hover .bg img{transform:scale(1.05)}
-.mcard:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-.mtop{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
-.mname{font-family:var(--display);font-size:25px;line-height:1.05;text-shadow:0 1px 8px rgba(0,0,0,.55)}
-.mmeta{flex:none;font-size:11.5px;font-weight:600;background:rgba(9,13,21,.62);padding:2px 8px;color:rgba(255,255,255,.85);white-space:nowrap}
-.lineup{display:grid;grid-template-columns:1fr 2fr 2fr;gap:8px}
-.grp{display:flex;flex-direction:column;gap:5px;min-width:0}
-.gl{font-size:11px;font-weight:700;letter-spacing:.04em;color:rgba(255,255,255,.72);border-bottom:1px solid rgba(255,255,255,.28);padding-bottom:2px}
-.gs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px}
-.slot{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
-.face{position:relative;width:48px;height:48px;border-radius:50%;background:#2A3446;box-shadow:0 0 0 2.5px var(--tc),0 2px 10px rgba(0,0,0,.45);display:grid;place-items:center;font-weight:700}
-.face img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
-.face .tb{position:absolute;right:-6px;bottom:-4px;min-width:19px;height:19px;padding:0 4px;display:grid;place-items:center;font-family:var(--display);font-weight:400;font-size:12.5px;line-height:1;background:var(--tc);color:var(--tci);clip-path:polygon(3px 0,100% 0,calc(100% - 3px) 100%,0 100%)}
-.face .spec{position:absolute;left:-5px;top:-5px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;line-height:1;background:#F4B81C;color:#1C1206;box-shadow:0 1px 4px rgba(0,0,0,.45)}
-.hn{max-width:100%;font-size:12px;font-weight:600;line-height:1.18;text-align:center;letter-spacing:-.01em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all;overflow-wrap:anywhere;text-shadow:0 1px 4px rgba(0,0,0,.7)}
-.mmeta.low{background:rgba(200,50,58,.85);color:#fff}
-.home-head.second{margin-top:34px}
 .rtboard{display:grid;gap:6px}
-.rt-row{display:grid;grid-template-columns:70px minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr);min-height:54px;background:var(--panel);border:1px solid var(--line)}
-.rt-row.rt-head{min-height:0;background:transparent;border:0}
-.rt-head span{font-size:13px;font-weight:700;color:var(--muted);padding:0 12px 2px;border-bottom:2px solid var(--ink)}
-.rt-head span:first-child{border-bottom:0}
-.rt-cell{display:flex;flex-wrap:wrap;gap:6px;align-content:center;align-items:center;padding:8px 10px;border-left:1px solid var(--line);min-width:0}
-.rt-cell .none{color:var(--faint);font-size:13px}
-.rt-cell .chip{font-size:14px;padding:6px 13px 6px 11px}
-.rt-row .tier-label{align-self:stretch}
 .star{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#F4B81C;color:#1C1206;font-size:10px;line-height:1;vertical-align:-2px;margin:0 2px}
 .home-sub .mv{font-size:11px}
 .custom-note{margin:0 0 12px;font-size:13px;color:var(--muted)}
@@ -332,21 +300,81 @@ body[data-view="method"] #seg,body[data-view="method"] .row2{display:none}
 .home-foot a,.home-foot button.linklike{color:inherit}
 button.linklike{border:0;background:none;padding:0;text-decoration:underline;cursor:pointer;font-size:inherit}
 @media (max-width: 560px){
-  .mgrid{grid-template-columns:minmax(0,1fr)}
-  .mcard{min-height:196px;padding:12px 12px 10px}
-  .mname{font-size:22px}
-  .face{width:44px;height:44px}
-  .rt-row{grid-template-columns:48px minmax(0,1fr)}
-  .rt-row .tier-label{grid-row:span 3;font-size:26px;padding-right:8px}
-  .rt-row.rt-head{display:none}
-  .rt-cell{border-left:0;border-top:1px solid var(--line);padding:7px 8px}
-  .rt-cell:nth-child(2){border-top:0}
-  .rt-cell::before{content:attr(data-label);flex:0 0 100%;font-size:11px;font-weight:700;color:var(--muted)}
-  .rt-cell .chip{font-size:13px;padding:5px 11px 5px 9px}
   .seg-b{grid-template-columns:repeat(4,1fr)!important}
   .seg-b button .rk.mini img{width:13px;height:13px}
 }
 @media (prefers-reduced-motion: reduce){ .mcard .bg img{transition:none} .mcard:hover .bg img{transform:none} }
+
+/* ---- home: all-maps tier board (three dark role panels) */
+.rtboard{background:linear-gradient(180deg,#171E2B,#111722);padding:16px;color:#E8ECF2}
+.rt-tabs{display:none}
+.rt-panels{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr);gap:12px;align-items:start}
+.rt-pn{background:#1B2331;border:1px solid #2C3749}
+.rt-ph{display:flex;align-items:center;padding:11px 14px;border-bottom:1px solid #2C3749;font-weight:700;font-size:16px}
+.rt-ph .n{margin-left:auto;font-size:12px;color:#8C98AA;font-weight:500}
+.rt-tr{display:grid;grid-template-columns:34px minmax(0,1fr);border-bottom:1px solid #243044;min-height:64px}
+.rt-tr:last-child{border-bottom:0}
+.rt-tl{display:grid;place-items:center;font-family:var(--display);font-size:20px;background:var(--tc);color:var(--tci)}
+.rt-hs{display:flex;flex-wrap:wrap;gap:10px 5px;padding:10px 8px;align-content:center}
+.rt-hs .none{font-size:12px;color:#6F7B8E;align-self:center;padding-left:4px}
+.rt-h{width:60px;display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:none;padding:0;color:inherit;cursor:pointer;font:inherit}
+.rt-h img{width:46px;height:46px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 2px var(--tc);background:#2A3446;transition:transform .15s}
+.rt-h:hover img{transform:scale(1.08)}
+.rt-h:focus-visible{outline:2px solid #7C95FF;outline-offset:2px}
+.rt-h .nm{font-size:11.5px;line-height:1.15;text-align:center;color:#C9D1DC;word-break:keep-all}
+.rt-h .sc{font-size:10.5px;color:#8C98AA;font-variant-numeric:tabular-nums}
+.rt-h .mv{font-size:9px;margin-left:2px}
+.rt-tr.rt-top{background:linear-gradient(90deg,rgba(200,50,58,.24),rgba(200,50,58,0) 70%)}
+.rt-tr.rt-top .rt-tl{font-size:28px}
+.rt-tr.rt-top .rt-h{width:76px}
+.rt-tr.rt-top .rt-h img{width:68px;height:68px;box-shadow:0 0 0 3px var(--tc),0 4px 14px rgba(0,0,0,.5)}
+.rt-tr.rt-top .rt-h .nm{font-size:13.5px;font-weight:700;color:#fff}
+.rt-tabs button{flex:1;border:0;background:transparent;color:#8C98AA;font-weight:700;font-size:14px;padding:9px 0;cursor:pointer}
+.rt-tabs button[aria-pressed="true"]{background:#E8ECF2;color:#141922}
+@media (max-width: 1100px){
+  .rtboard{padding:12px}
+  .rt-tabs{display:flex;border:1px solid #2C3749;margin-bottom:10px}
+  .rt-panels{grid-template-columns:minmax(0,1fr)}
+  .rt-panels[data-active="tank"] .rt-pn:not([data-role-panel="tank"]),
+  .rt-panels[data-active="damage"] .rt-pn:not([data-role-panel="damage"]),
+  .rt-panels[data-active="support"] .rt-pn:not([data-role-panel="support"]){display:none}
+  .rt-tr.rt-top .rt-h{width:74px}
+  .rt-tr.rt-top .rt-h img{width:58px;height:58px}
+}
+
+/* ---- home: map meta, modes in two columns, wide short cards */
+.home-head.second{margin-top:40px}
+.mgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:40px 28px;align-items:start}
+.mgroup{min-width:0}
+.mode-h{display:flex;align-items:baseline;gap:10px;margin:0 0 12px;padding-bottom:8px;border-bottom:3px solid var(--ink);font-size:19px;font-weight:700}
+.mode-h span{font-size:13px;font-weight:500;color:var(--muted)}
+.mlist{display:grid;gap:10px}
+.mcard{position:relative;display:grid;grid-template-columns:minmax(120px,.8fr) minmax(0,2.2fr);align-items:center;gap:14px;min-height:106px;padding:10px 14px;border:0;overflow:hidden;cursor:pointer;text-align:left;color:#fff;background:#1B2331;isolation:isolate;width:100%}
+.mcard .bg{position:absolute;inset:0;z-index:-2;display:flex}
+.mcard .bg img{flex:1;min-width:0;width:100%;height:100%;object-fit:cover;transition:transform .35s ease}
+.mcard::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(9,13,21,.86) 0%,rgba(9,13,21,.55) 32%,rgba(9,13,21,.78) 100%)}
+.mcard:hover .bg img{transform:scale(1.05)}
+.mcard:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.mtop{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
+.mname{font-family:var(--display);font-size:22px;line-height:1.08;text-shadow:0 1px 8px rgba(0,0,0,.6)}
+.mmeta{font-size:11.5px;font-weight:600;background:rgba(9,13,21,.62);padding:2px 8px;color:rgba(255,255,255,.85);white-space:nowrap}
+.mmeta.low{background:rgba(200,50,58,.85);color:#fff}
+.lineup{display:grid;grid-template-columns:1fr 2fr 2fr;gap:8px}
+.grp{display:flex;flex-direction:column;gap:4px;min-width:0}
+.gl{font-size:10.5px;font-weight:700;letter-spacing:.04em;color:rgba(255,255,255,.7);border-bottom:1px solid rgba(255,255,255,.26);padding-bottom:2px}
+.gs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px}
+.slot{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
+.face{position:relative;width:42px;height:42px;border-radius:50%;background:#2A3446;box-shadow:0 0 0 2px var(--tc),0 2px 8px rgba(0,0,0,.45);display:grid;place-items:center;font-weight:700}
+.face img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
+.face .tb{position:absolute;right:-6px;bottom:-4px;min-width:17px;height:17px;padding:0 3px;display:grid;place-items:center;font-family:var(--display);font-weight:400;font-size:11.5px;line-height:1;background:var(--tc);color:var(--tci);clip-path:polygon(3px 0,100% 0,calc(100% - 3px) 100%,0 100%)}
+.face .spec{position:absolute;left:-5px;top:-5px;width:16px;height:16px;border-radius:50%;display:grid;place-items:center;font-size:10px;line-height:1;background:#F4B81C;color:#1C1206;box-shadow:0 1px 4px rgba(0,0,0,.45)}
+.hn{max-width:100%;font-size:11.5px;font-weight:600;line-height:1.15;text-align:center;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 4px rgba(0,0,0,.7)}
+@media (max-width: 1000px){ .mgrid{grid-template-columns:minmax(0,1fr)} }
+@media (max-width: 560px){
+  .mcard{grid-template-columns:minmax(0,1fr);gap:8px;padding:10px 12px}
+  .mtop{flex-direction:row;align-items:center;justify-content:space-between}
+  .mname{font-size:20px}
+}
 </style>
 </head>
 <body>
@@ -385,7 +413,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     <p class="patch-note" id="homePatch" hidden></p>
     <p class="custom-note" id="homeCustom" hidden></p>
     <div class="rtboard" id="homeBoard"></div>
-    <div class="home-head second"><h2>맵별 메타 조합</h2></div>
+    <div class="home-head second"><h2>맵별 메타</h2></div>
     <p class="home-sub" id="homeSub"></p>
     <div class="mgrid" id="mgrid"></div>
     <p class="home-foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다. <button type="button" class="linklike" data-view="method">계산 방식 보기</button></p>
@@ -528,7 +556,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   let INDEX = null, D = null, H = [], MAPS = [], MAP_IDS = [], ALL_IDS = [], MODES = [], MAP_BY_ID = {}, BRS = [];
   const CACHE = {};
   // the first screen is always the map overview for all ranks; the rest of the settings are remembered
-  const state = {view:'home', server:'kr', bracket:'all', role:'tank', map:'all-maps', focus:null, w:Object.assign({}, DEFAULT_W), smooth:true, sort:{key:'mi', dir:-1}};
+  const state = {homeRole:'tank', view:'home', server:'kr', bracket:'all', role:'tank', map:'all-maps', focus:null, w:Object.assign({}, DEFAULT_W), smooth:true, sort:{key:'mi', dir:-1}};
   const saved = store.get('state');
   if (saved) {
     for (const k of ['server','role','map']) if (typeof saved[k] === 'string') state[k] = saved[k];
@@ -727,17 +755,21 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       const up = TIERS.indexOf(b) < TIERS.indexOf(a);
       return `<span class="mv ${up ? 'up' : 'down'}" title="${PREV.label} ${a} → ${b}">${up ? '▲' : '▼'}</span>`;
     };
-    // all-maps tier board: tiers as rows, roles as columns
-    let board = `<div class="rt-row rt-head" aria-hidden="true"><span></span>${ROLES.map(([, label]) => `<span>${label}</span>`).join('')}</div>`;
-    for (const t of TIERS) {
-      board += `<div class="rt-row t-${t}"><div class="tier-label" aria-label="${t} 티어">${t}</div>`;
-      for (const [r, label] of ROLES) {
-        const hs = ranked('all-maps', r).filter(i => tierOf(MR[r]['all-maps'][i]) === t);
-        board += `<div class="rt-cell" data-label="${label}">${hs.length ? hs.map(i =>
-          `<button type="button" class="chip" data-go="all-maps" data-go-role="${r}" data-go-hero="${i}" title="${esc(H[i].name)}: 맵·영웅 상세에서 보기">${portrait(i, 'pt')}<span class="nm">${esc(H[i].name)}</span><span class="sc">${Math.round(MR[r]['all-maps'][i])}</span>${markOf(r, i)}</button>`).join('') : '<span class="none">없음</span>'}</div>`;
+    // all-maps tier board: one dark panel per role, S row enlarged; on narrow screens one role at a time (tabs)
+    let board = `<div class="rt-tabs" role="group" aria-label="역할">${ROLES.map(([r, l]) => `<button type="button" data-home-role="${r}" aria-pressed="${state.homeRole === r}">${l}</button>`).join('')}</div><div class="rt-panels" id="rtPanels" data-active="${state.homeRole}">`;
+    for (const [r, label] of ROLES) {
+      const order = ranked('all-maps', r);
+      board += `<section class="rt-pn" data-role-panel="${r}" aria-label="${label} 티어"><div class="rt-ph"><span>${label}</span><span class="n">${order.length}명</span></div>`;
+      for (const t of TIERS) {
+        const hs = order.filter(i => tierOf(MR[r]['all-maps'][i]) === t);
+        board += `<div class="rt-tr t-${t}${t === 'S' ? ' rt-top' : ''}"><div class="rt-tl" aria-label="${t} 티어">${t}</div><div class="rt-hs">${hs.length ? hs.map(i => {
+          const img = H[i].img ? `<img src="${esc(H[i].img)}" alt="" width="46" height="46" loading="lazy" decoding="async" onerror="this.remove()">` : '';
+          return `<button type="button" class="rt-h" data-go="all-maps" data-go-role="${r}" data-go-hero="${i}" title="${esc(H[i].name)} ${t} (${Math.round(MR[r]['all-maps'][i])}): 맵·영웅 상세에서 보기">${img}<span class="nm">${esc(H[i].name)}${markOf(r, i)}</span><span class="sc">${Math.round(MR[r]['all-maps'][i])}</span></button>`;
+        }).join('') : '<span class="none">없음</span>'}</div></div>`;
       }
-      board += `</div>`;
+      board += `</section>`;
     }
+    board += `</div>`;
     $('homeBoard').innerHTML = board;
     $('homeBoardSub').innerHTML = `${MAP_IDS.length}개 맵을 합쳐 역할마다 따로 매긴 티어입니다.`
       + (PREV ? ` <span class="mv up">▲</span><span class="mv down">▼</span> ${PREV.label} 대비 티어 변동.` : '');
@@ -746,15 +778,16 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     for (const mode of MODES) {
       const ms = MAPS.filter(x => x.mode === mode);
       if (!ms.length) continue;
-      html += `<h3 class="mode-h">${esc(mode)}<span>${ms.length}개 맵</span></h3>`;
+      html += `<section class="mgroup"><h3 class="mode-h">${esc(mode)}<span>${ms.length}개 맵</span></h3><div class="mlist">`;
       for (const m of ms) {
         const n = B.N[m.id]; const [, rl] = relOf(n);
-        html += `<button type="button" class="mcard" data-go="${m.id}" aria-label="${esc(m.name)} 상세 티어 보기. 메타 조합 ${esc(names(m.id))}">
+        html += `<button type="button" class="mcard" data-go="${m.id}" aria-label="${esc(m.name)} 상세 보기. 메타 ${esc(names(m.id))}">
           <span class="bg" aria-hidden="true">${bgImg(m.id)}</span>
           <span class="mtop"><span class="mname">${esc(m.name)}</span><span class="mmeta${n < 150 ? ' low' : ''}" title="표본 신뢰도 ${rl}">추정 ${fmtInt(n)}경기${n < 150 ? ' · 표본 적음' : ''}</span></span>
           ${lineup(m.id)}
         </button>`;
       }
+      html += `</div></section>`;
     }
     $('mgrid').innerHTML = html;
     $('homeSample').textContent = `${D.meta.label} · 전체 티어(${B.ranks}) · ${MAP_IDS.length}개 맵 종합 · 추정 ${fmtInt(B.N['all-maps'])}경기`;
@@ -1009,6 +1042,13 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 
   document.addEventListener('click', e => {
     const t = e.target;
+    const hrEl = t.closest('[data-home-role]');
+    if (hrEl) {
+      state.homeRole = hrEl.dataset.homeRole;
+      $('rtPanels').dataset.active = state.homeRole;
+      for (const b of document.querySelectorAll('[data-home-role]')) b.setAttribute('aria-pressed', String(b.dataset.homeRole === state.homeRole));
+      return;
+    }
     const goEl = t.closest('[data-go]');
     if (goEl) {
       state.map = goEl.dataset.go; state.focus = null;
