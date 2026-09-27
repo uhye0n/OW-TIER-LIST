@@ -346,6 +346,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 .home-head.second{margin-top:40px}
 .mgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:40px 28px;align-items:start}
 .mgroup{min-width:0}
+.mcol{display:grid;gap:40px;min-width:0;align-content:start}
 .mode-h{display:flex;align-items:baseline;gap:10px;margin:0 0 12px;padding-bottom:8px;border-bottom:3px solid var(--ink);font-size:19px;font-weight:700}
 .mode-h span{font-size:13px;font-weight:500;color:var(--muted)}
 .mlist{display:grid;gap:10px}
@@ -774,10 +775,21 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     bs.innerHTML = PREV ? `<span class="mv up">▲</span><span class="mv down">▼</span> ${PREV.label} 대비 티어 변동` : '';
     bs.hidden = !PREV;
 
+    // modes two per row; an odd one out is stacked under the shorter group of the row above
+    const modes = MODES.filter(mode => MAPS.some(x => x.mode === mode));
+    const cnt = mode => MAPS.filter(x => x.mode === mode).length;
+    const rows = [];
+    for (let k = 0; k < modes.length; k += 2) rows.push(modes.slice(k, k + 2).map(m => [m]));
+    if (rows.length > 1 && rows[rows.length - 1].length === 1) {
+      const last = rows.pop()[0][0], prev = rows[rows.length - 1];
+      const size = cell => cell.reduce((a, m) => a + cnt(m) + 1, 0);
+      (size(prev[0]) <= size(prev[1]) ? prev[0] : prev[1]).push(last);
+    }
     let html = '';
-    for (const mode of MODES) {
+    for (const row of rows) for (const cell of row) {
+    html += `<div class="mcol">`;
+    for (const mode of cell) {
       const ms = MAPS.filter(x => x.mode === mode);
-      if (!ms.length) continue;
       html += `<section class="mgroup"><h3 class="mode-h">${esc(mode)}<span>${ms.length}개 맵</span></h3><div class="mlist">`;
       for (const m of ms) {
         const n = B.N[m.id]; const [, rl] = relOf(n);
@@ -788,6 +800,8 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         </button>`;
       }
       html += `</div></section>`;
+    }
+    html += `</div>`;
     }
     $('mgrid').innerHTML = html;
     $('homeSample').textContent = `${D.meta.label} · 전체 티어(${B.ranks}) · ${MAP_IDS.length}개 맵 종합 · 추정 ${fmtInt(B.N['all-maps'])}경기`;
