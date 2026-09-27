@@ -264,8 +264,6 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
 body[data-view="home"] #seg,body[data-view="home"] #segB,body[data-view="home"] .row2{display:none}
 body:not([data-view="home"]) #homeView,body:not([data-view="detail"]) #detailView,body:not([data-view="method"]) #methodView{display:none}
 body[data-view="method"] #seg,body[data-view="method"] .row2{display:none}
-.method-link{margin-left:auto;border:1px solid var(--line);background:var(--panel);padding:6px 12px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;align-self:center}
-.method-link:hover{background:var(--hl)}
 #method .fresh{margin:6px 0 4px}
 .crumb{display:flex;align-items:center;gap:12px;margin-top:18px;font-size:13.5px;color:var(--muted)}
 .crumb .back{border:1px solid var(--line);background:var(--panel);padding:7px 13px;font-weight:700;font-size:14px;cursor:pointer;color:var(--ink)}
@@ -366,7 +364,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 
 
   <section id="homeView">
-    <div class="home-head"><h2>한눈에 보기</h2><span class="sample" id="homeSample"></span><button type="button" class="method-link" data-view="method">계산 방식 보기 →</button></div>
+    <div class="home-head"><h2>한눈에 보기</h2><span class="sample" id="homeSample"></span></div>
     <p class="home-sub" id="homeBoardSub"></p>
     <p class="patch-note" id="homePatch" hidden></p>
     <p class="custom-note" id="homeCustom" hidden></p>
@@ -374,7 +372,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     <div class="home-head second"><h2>맵별 메타 조합</h2></div>
     <p class="home-sub" id="homeSub"></p>
     <div class="mgrid" id="mgrid"></div>
-    <p class="home-foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다. </p>
+    <p class="home-foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다. <button type="button" class="linklike" data-view="method">계산 방식 보기</button></p>
   </section>
 
   <div id="detailView">
