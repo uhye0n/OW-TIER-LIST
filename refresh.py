@@ -168,16 +168,44 @@ def retry(fn, what, tries=4, source=None):
     raise RuntimeError(f"{what}: {last}")
 
 
+# Game-mode (rq) codes differ per site and have been renumbered before (Blizzard moved competitive role queue
+# from 2 to 1 in Oct 2026), so they are read from each site's own filter list at the start of every run.
+RQ_NAME = ("경쟁전", "역할 고정")
+RQ = {"nexon": "2", "blizzard": "1"}
+
+
+def resolve_rq():
+    def nexon():
+        data = nuxt_payload(curl(f"{NEXON}?input=pc&role=all&region=korea&map=all"))["data"]
+        qs = ((data.get("hero-rate-filters") or {}).get("data") or {}).get("rulesetQueues") or []
+        hit = [x["value"] for x in qs if all(w in (x.get("name") or "") for w in RQ_NAME)]
+        if len(hit) != 1:
+            raise ValueError(f"competitive role queue not found in {qs}")
+        return str(hit[0])
+
+    def blizz():
+        page = curl(BLIZZ.rsplit("data/", 1)[0])
+        sel = re.search(r'id="filter-rq-select"(.*?)</select>', page, re.S)
+        opts = re.findall(r'<option[^>]*data-title="([^"]*)"[^>]*value="([^"]*)"', sel.group(1)) if sel else []
+        hit = [v for t, v in opts if all(w in t for w in RQ_NAME)]
+        if len(hit) != 1:
+            raise ValueError(f"competitive role queue not found in {opts}")
+        return hit[0]
+
+    RQ["nexon"] = retry(nexon, "nexon game modes")
+    RQ["blizzard"] = retry(blizz, "blizzard game modes")
+
+
 def nexon_fetch(region, rank, mp):
     """Returns (rows, heroes_meta, filters)."""
-    q = f"input=pc&rq=2&role=all&region={region}&map={'all' if mp == 'all-maps' else mp}"
+    q = f"input=pc&rq={RQ['nexon']}&role=all&region={region}&map={'all' if mp == 'all-maps' else mp}"
     if rank:
         q += f"&rank={rank}"
 
     def go():
         data = nuxt_payload(curl(f"{NEXON}?{q}"))["data"]
         hl = data["hero-rate-list"]
-        if hl.get("status") != "success" or str(hl.get("rq")) != "2":
+        if hl.get("status") != "success" or str(hl.get("rq")) != RQ["nexon"]:
             raise ValueError(f"bad response {hl.get('status')} rq={hl.get('rq')}")
         lst = (hl.get("data") or {}).get("list") or []
         rows, meta = {}, {}
@@ -193,12 +221,12 @@ def nexon_fetch(region, rank, mp):
 
 def blizz_fetch(region, rank, mp):
     tier = rank.capitalize() if rank else "All"
-    q = f"input=PC&map={mp}&region={region}&role=All&rq=2&tier={tier}"
+    q = f"input=PC&map={mp}&region={region}&role=All&rq={RQ['blizzard']}&tier={tier}"
 
     def go():
         d = json.loads(curl(f"{BLIZZ}?{q}", ["X-Requested-With: XMLHttpRequest", "Accept: application/json"]))
         sel = d["rates"]["selected"]
-        if sel.get("map") != mp or sel.get("region") != region or sel.get("tier") != tier or str(sel.get("rq")) != "2":
+        if sel.get("map") != mp or sel.get("region") != region or sel.get("tier") != tier or str(sel.get("rq")) != RQ["blizzard"]:
             raise ValueError(f"filters not applied: {sel}")
         rows, meta = {}, {}
         for x in d["rates"]["rates"]:
@@ -455,6 +483,8 @@ def main():
     t0 = time.time()
     log("Reading Nexon filters...")
     try:
+        resolve_rq()
+        log(f"Competitive role queue: nexon rq={RQ['nexon']}, blizzard rq={RQ['blizzard']}")
         _, _, filters = nexon_fetch("korea", "master", "all-maps")
     except RuntimeError as e:
         die(f"fetch failed: {e}")
