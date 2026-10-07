@@ -61,6 +61,7 @@ CAP = 780          # ban-rate quantization cannot resolve match counts at or abo
 RELIABLE = 600     # below this the quantization estimate is taken as exact
 PATCH_DROP = 0.7   # grandmaster matches falling below this share of the previous run = stats were reset
 MG_RATIO = (1.5, 6.0)
+RANK_SUM_TOL = 15.0      # a rank whose pick shares miss 500% by more than this has too few games to use
 ROLE_CLEAN_TOL = 1.0     # after a role change, both roles' pick shares must be back within this of 100/200   # plausible master : grandmaster match ratio (observed 2.5-3.6 where both are exact)
 HISTORY_KEEP = 40
 PATCH_COMPARE_DAYS = 7   # after a reset, compare against the last pre-reset snapshot for this long
@@ -238,8 +239,18 @@ def blizz_fetch(region, rank, mp):
     tier = rank.capitalize() if rank else "All"
     q = f"input=PC&map={mp}&region={region}&role=All&rq={RQ['blizzard']}&tier={tier}"
 
+    empty = [0]
+
     def go():
-        d = json.loads(curl(f"{BLIZZ}?{q}", ["X-Requested-With: XMLHttpRequest", "Accept: application/json"]))
+        txt = curl(f"{BLIZZ}?{q}", ["X-Requested-With: XMLHttpRequest", "Accept: application/json"])
+        if not txt.strip():
+            # Blizzard leaves map pages without games unanswered (timeout, empty body); twice in a row = no data.
+            # An all-maps page always has games, so there an empty answer stays an error and is retried.
+            empty[0] += 1
+            if empty[0] >= 2 and mp != "all-maps":
+                return {}, {}, None
+            raise ValueError("empty response")
+        d = json.loads(txt)
         sel = d["rates"]["selected"]
         if sel.get("map") != mp or sel.get("region") != region or sel.get("tier") != tier or str(sel.get("rq")) != RQ["blizzard"]:
             raise ValueError(f"filters not applied: {sel}")
@@ -517,6 +528,16 @@ def main():
         print("RESULT: UPDATED", flush=True)
         return
 
+    def wait_all(reason):
+        """Nothing usable this run (typically the first hours of a season): keep every published file and only
+        flag the servers as waiting, so the page can say so. Not an error."""
+        idx = load_json(os.path.join(args.out, "index.json"), {}) or {}
+        if idx.get("servers"):
+            idx["servers"] = [{**x, "waiting": True} for x in idx["servers"]]
+            write_json(os.path.join(args.out, "index.json"), idx)
+        log(f"{reason}: keeping the published numbers")
+        print("RESULT: WAITING", flush=True)
+
     t0 = time.time()
     log("Reading Nexon filters...")
     try:
@@ -552,11 +573,32 @@ def main():
     sub_names = {x["value"]: x["name"] for x in filters.get("roles") or [] if x.get("parentValue")}
     all_maps = ["all-maps"] + [x["id"] for x in map_list]
 
+    # ---- right after a season reset a site can serve empty competitive tables for a while (Nexon did for a day
+    #      in Oct 2026): such a server keeps its last published data and is marked as waiting
+    SV = []
+    for sv in SERVERS:
+        s_, _, kind, reg = sv
+        try:
+            rows, _, _ = (nexon_fetch if kind == "nexon" else blizz_fetch)(reg, None, "all-maps")
+        except RuntimeError as e:
+            log(f"WARNING {sv[1]}: source not reachable ({e}), keeping the last published numbers")
+            continue
+        if any(v for v in rows.values()):
+            SV.append(sv)
+        else:
+            log(f"WARNING {sv[1]}: no competitive data on the source yet, keeping the last published numbers")
+    if not SV:
+        return wait_all("no server has competitive data yet")
+    ABORT.clear()
+    _streak.clear()
+    live_ids = [x[0] for x in SV]
+    prior_servers = [x for x in PRIOR_SERVERS if x in live_ids] or live_ids
+
     # ---- scrape: every server x (8 ranks + all ranks) x (all maps + each map)
-    jobs = [(s, r, m) for s, _, _, _ in SERVERS for r in RANKS + [None] for m in all_maps]
-    src = {s: (kind, reg) for s, _, kind, reg in SERVERS}
+    jobs = [(s, r, m) for s, _, _, _ in SV for r in RANKS + [None] for m in all_maps]
+    src = {s: (kind, reg) for s, _, kind, reg in SV}
     log(f"Fetching {len(jobs)} stat pages...")
-    raw = {s: {r: {} for r in RANKS + ["all"]} for s, _, _, _ in SERVERS}
+    raw = {s: {r: {} for r in RANKS + ["all"]} for s, _, _, _ in SV}
     meta_kr, meta_bz = {}, {}
 
     def work(job):
@@ -575,8 +617,9 @@ def main():
                 _, (rows, meta, _) = f.result()
             except Exception as e:  # noqa: BLE001
                 failed.append((s, r, m, str(e)))
-                # a missing all-maps page or a blocked source cannot be worked around
-                if m == "all-maps" or ABORT.is_set():
+                # a blocked source cannot be worked around; a missing all-maps page leaves that rank (or, for
+                # all ranks, the whole server) out of this run through the consistency checks below
+                if ABORT.is_set():
                     fatal = fatal or str(e)
                     ABORT.set()
                     ex.shutdown(wait=False, cancel_futures=True)
@@ -604,33 +647,58 @@ def main():
             log(f"NOTE hero {h} is listed by only one source")
     # a hero listed before release (or not yet in competitive) has no play anywhere: leave it out until it does,
     # otherwise its empty cells would score as a D-tier hero
-    played = {h for h in hero_ids for s, _, _, _ in SERVERS
+    played = {h for h in hero_ids for s, _, _, _ in SV
               if (raw[s]["all"]["all-maps"].get(h) or [0])[0] > 0}
     for h in hero_ids:
         if h not in played:
             log(f"NOTE hero {h} has no competitive play on any server yet, left out")
     hero_ids = [h for h in hero_ids if h in played]
     role_of = {h: meta_all[h]["role"] for h in hero_ids}
-    for s, _, _, _ in SERVERS:
-        alls = [json.dumps(raw[s][r]["all-maps"], sort_keys=True) for r in RANKS + ["all"]]
+    for s, _, _, _ in SV:
+        alls = [json.dumps(raw[s][r]["all-maps"], sort_keys=True) for r in RANKS + ["all"] if raw[s][r].get("all-maps")]
         if len(set(alls)) < len(alls):
             die(f"{s}: rank filter was not applied (identical data for different ranks)")
-        # pick shares must add up to the five slots; a single role may drift a few points when a hero changes
-        # role mid-season (Sombra moved from damage to support in Oct 2026 and her earlier games still count
-        # toward damage time), so per role only a looser bound applies
+    # pick shares must add up to the five slots; a single role may drift a few points when a hero changes
+    # role mid-season (Sombra moved from damage to support in Oct 2026 and her earlier games still count
+    # toward damage time), so per role only a looser bound applies. In the first days of a season the tables
+    # rest on a handful of games and do not add up yet (Asia bronze summed to 562% the day after the Season 5
+    # reset): such a server keeps its last published numbers until every rank is consistent.
+    TOTAL = sum(ROLE_PICK_SUM.values())
+
+    def pick_sum(s, r, role=None):
+        rows = raw[s][r]["all-maps"]
+        return sum(rows[h][0] for h in hero_ids if rows.get(h) and (role is None or role_of[h] == role))
+
+    def server_problem(s):
+        grand = pick_sum(s, "all")
+        if abs(grand - TOTAL) > 3:
+            return f"all ranks: pick rates sum to {grand:.1f}, expected {TOTAL:.0f}"
+        for role, target in ROLE_PICK_SUM.items():
+            tot = pick_sum(s, "all", role)
+            if abs(tot - target) > 10:
+                return f"all ranks: {role} pick rates sum to {tot:.1f}, expected {target:.0f}"
+            if abs(tot - target) > 3:
+                log(f"NOTE {s} {role} pick rates sum to {tot:.1f} (role change this season?)")
+        return None
+    for sv in list(SV):
+        why = server_problem(sv[0])
+        if why:
+            log(f"WARNING {sv[1]}: tables not consistent yet ({why}), keeping the last published numbers")
+            SV.remove(sv)
+    if not SV:
+        return wait_all("no server has consistent competitive data yet")
+    # a single rank resting on a handful of games (or not answered at all) is left out for this run
+    for s, label, _, _ in SV:
         for r in RANKS:
-            rows = raw[s][r]["all-maps"]
-            grand = sum(rows[h][0] for h in hero_ids if rows.get(h))
-            if abs(grand - sum(ROLE_PICK_SUM.values())) > 3:
-                die(f"{s} {r} pick rates sum to {grand:.1f}, expected {sum(ROLE_PICK_SUM.values()):.0f}")
-            for role, target in ROLE_PICK_SUM.items():
-                tot = sum(rows[h][0] for h in hero_ids if role_of[h] == role and rows.get(h))
-                if abs(tot - target) > 10:
-                    die(f"{s} {r} {role} pick rates sum to {tot:.1f}, expected {target:.0f}")
-                if abs(tot - target) > 3:
-                    log(f"NOTE {s} {r} {role} pick rates sum to {tot:.1f} (role change this season?)")
+            grand = pick_sum(s, r)
+            if abs(grand - TOTAL) > RANK_SUM_TOL:
+                log(f"NOTE {label} {r}: pick rates sum to {grand:.1f}, too few games yet, rank left out this run")
+                for m in raw[s][r]:
+                    raw[s][r][m] = {}
+    live_ids = [x[0] for x in SV]
+    prior_servers = [x for x in PRIOR_SERVERS if x in live_ids] or live_ids
     maps = [x for x in map_list
-            if any(raw[s][r][x["id"]].get(h) for s, _, _, _ in SERVERS for r in RANKS for h in hero_ids)]
+            if any(raw[s][r][x["id"]].get(h) for s, _, _, _ in SV for r in RANKS for h in hero_ids)]
     for x in map_list:
         if x not in maps:
             log(f"Skipping {x['name']}: no competitive data")
@@ -639,7 +707,7 @@ def main():
         die(f"only {len(map_ids)} maps have competitive data (season just reset?)")
     ALL = ["all-maps"] + map_ids
     # the map filter must actually be applied: per-map pages identical to the all-maps page mean it was ignored
-    for s, _, _, _ in SERVERS:
+    for s, _, _, _ in SV:
         for r in RANKS + ["all"]:
             base = json.dumps(raw[s][r]["all-maps"], sort_keys=True)
             same = sum(1 for m in map_ids if raw[s][r][m] and json.dumps(raw[s][r][m], sort_keys=True) == base)
@@ -651,7 +719,7 @@ def main():
         return {r: {m: {h: raw[s][r][m].get(h) for h in hero_ids} for m in ALL} for r in RANKS + ["all"]}
     roles_key = {h: role_of[h] for h in hero_ids}
     hashes = {s: hashlib.sha256((MODEL_VERSION + json.dumps([canon(s), roles_key], sort_keys=True)).encode()).hexdigest()[:16]
-              for s, _, _, _ in SERVERS}
+              for s, _, _, _ in SV}
     prev_index = load_json(os.path.join(args.out, "index.json"), {}) or {}
     prev_hashes = {x["id"]: x.get("hash") for x in prev_index.get("servers", [])}
     if all(prev_hashes.get(s) == h for s, h in hashes.items()) and not args.force:
@@ -664,18 +732,19 @@ def main():
         if not any(rows.get(h) for h in hero_ids):
             return 0                                   # no data at all: no matches (not "too many to resolve")
         return est_n([(rows.get(h) or [0, 0, 0])[2] for h in hero_ids])
-    nraw = {s: {r: {m: n_of(raw[s][r][m]) for m in map_ids} for r in RANKS} for s, _, _, _ in SERVERS}
+    nraw = {s: {r: {m: n_of(raw[s][r][m]) for m in map_ids} for r in RANKS} for s, _, _, _ in SV}
     shares = {s: rank_shares(raw[s]["all"]["all-maps"], {r: raw[s][r]["all-maps"] for r in RANKS}, hero_ids)
-              for s, _, _, _ in SERVERS}
-    for s, label, _, _ in SERVERS:
+              for s, _, _, _ in SV}
+    for s, label, _, _ in SV:
         log(f"{label} match shares: " + ", ".join(f"{r} {shares[s][r] * 100:.1f}%" for r in RANKS))
     gm = {}
-    gm["kr"] = impute_offset(nraw["kr"]["grandmaster"], nraw["asia"]["grandmaster"])
-    gm["asia"] = impute_offset(nraw["asia"]["grandmaster"], gm["kr"])
-    gm["americas"] = impute_offset(nraw["americas"]["grandmaster"], gm["asia"])
-    gm["europe"] = impute_offset(nraw["europe"]["grandmaster"], gm["asia"])
+    gm_ref = {"kr": "asia", "asia": "kr", "americas": "asia", "europe": "asia"}
+    for s in [x for x in ("kr", "asia", "americas", "europe") if x in live_ids]:
+        r_ = gm_ref[s]
+        ref = gm.get(r_) or (nraw[r_]["grandmaster"] if r_ in live_ids else nraw[s]["grandmaster"])
+        gm[s] = impute_offset(nraw[s]["grandmaster"], ref)
     N = {}
-    for s, _, _, _ in SERVERS:
+    for s, _, _, _ in SV:
         sh = shares[s]
         # the mixture fit separates master from grandmaster poorly (their hero profiles are close), so the
         # grandmaster share alone can come out near 0 and blow every lower rank up a thousandfold. The lower
@@ -723,9 +792,9 @@ def main():
                             "miss": all(c["miss"] for c in cs)}
         return NP, KR
 
-    MERGED = {(s, gid): merge(s, ranks) for s, _, _, _ in SERVERS for gid, _, _, ranks in GROUPS}
+    MERGED = {(s, gid): merge(s, ranks) for s, _, _, _ in SV for gid, _, _, ranks in GROUPS}
     # the all-ranks bracket uses the official all-ranks numbers directly (match counts still from the estimates)
-    for s, _, _, _ in SERVERS:
+    for s, _, _, _ in SV:
         MERGED[(s, "all")] = (MERGED[(s, "all")][0], {m: {h: cell(raw[s]["all"][m], h) for h in hero_ids} for m in ALL})
 
     # ---- prior weights estimated from the data, per bracket, pooled over all servers.
@@ -735,7 +804,7 @@ def main():
     KW = {}
     for gid, _, _, _ in GROUPS:
         ew = [0.0, 0.0]; ep = [0.0, 0.0]; eb = [0.0, 0.0]
-        for s, _, _, _ in SERVERS:
+        for s, _, _, _ in SV:
             NP, KR = MERGED[(s, gid)]
             for h in hero_ids:
                 a = KR["all-maps"][h]
@@ -768,16 +837,16 @@ def main():
     # ---- map-effect priors per bracket: pooled Asia + Americas + Europe of the same bracket
     PRIOR, EFF = {}, {}
     for gid, _, _, _ in GROUPS:
-        NG = {m: sum(MERGED[(s, gid)][0][m] for s in PRIOR_SERVERS) for m in ALL}
+        NG = {m: sum(MERGED[(s, gid)][0][m] for s in prior_servers) for m in ALL}
 
         def pooled(m, h):
             if NG[m] <= 0:
                 return 0.0, 0.0, None
-            cs = {s: MERGED[(s, gid)][1][m][h] for s in PRIOR_SERVERS}
-            ws = {s: MERGED[(s, gid)][0][m] for s in PRIOR_SERVERS}
-            pr = sum(ws[s] * cs[s]["pr"] for s in PRIOR_SERVERS) / NG[m]
-            br = sum(ws[s] * cs[s]["br"] for s in PRIOR_SERVERS) / NG[m]
-            gs = [(ws[s] * cs[s]["pr"], cs[s]["wr"]) for s in PRIOR_SERVERS if cs[s]["wr"] is not None]
+            cs = {s: MERGED[(s, gid)][1][m][h] for s in prior_servers}
+            ws = {s: MERGED[(s, gid)][0][m] for s in prior_servers}
+            pr = sum(ws[s] * cs[s]["pr"] for s in prior_servers) / NG[m]
+            br = sum(ws[s] * cs[s]["br"] for s in prior_servers) / NG[m]
+            gs = [(ws[s] * cs[s]["pr"], cs[s]["wr"]) for s in prior_servers if cs[s]["wr"] is not None]
             sg = sum(g for g, _ in gs)
             return pr, br, (sum(g * w for g, w in gs) / sg if sg > 0 else None)
 
@@ -857,7 +926,7 @@ def main():
 
     index_servers = []
     summaries = []
-    for s, label, kind, _ in SERVERS:
+    for s, label, kind, _ in SV:
         hist_path = os.path.join(args.history, f"{s}.json")
         hist = load_json(hist_path, {"snapshots": [], "patchStart": None}) or {"snapshots": [], "patchStart": None}
         # ---- role changes: from the change on, the hero is a new hero. Its earlier records are kept apart, and it
@@ -970,6 +1039,12 @@ def main():
         update_archive(os.path.join(args.archive, f"{s}.json"), exported)
         index_servers.append({"id": s, "label": label, "source": kind, "hash": hashes[s], "collectedAt": now_s})
 
+    prev_entries = {x["id"]: x for x in prev_index.get("servers", [])}
+    for sv in SERVERS:
+        if sv[0] not in live_ids and sv[0] in prev_entries:
+            index_servers.append({**prev_entries[sv[0]], "waiting": True})
+    order = [x[0] for x in SERVERS]
+    index_servers.sort(key=lambda x: order.index(x["id"]))
     write_json(os.path.join(args.out, "index.json"), {"collectedAt": now_s, "servers": index_servers})
     for line in summaries:
         log(line)

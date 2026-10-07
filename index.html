@@ -613,6 +613,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
           <li><b>▲▼</b>: 직전 기록 대비 티어 변동(기본 가중치·보정 기준)</li>
           <li><b>영웅 추이</b>: 하루 한 번 저장한 전체 맵 기록(지수는 기본 가중치·보정, 픽률·승률·밴률은 원본)</li>
           <li><b>패치 감지</b>: 그랜드마스터 경기 수가 직전의 70% 아래로 떨어지면 새 패치로 보고, 7일 동안 지난 패치 마지막 기록과 비교(이틀 안에 경기 수가 회복되면 감지 취소)</li>
+          <li><b>새 시즌 초반</b>: 공식 통계가 비어 있거나 경기가 너무 적어 픽률 합이 맞지 않는 서버는 지난 시즌 마지막 수치를 유지하고, 경기가 적은 랭크 하나는 그 회차에서만 제외</li>
           <li><b>역할 변경</b>: 역할이 바뀐 영웅은 새 영웅으로 취급. 이전 역할 기록은 따로 보관하고, 공식 통계가 새 역할 경기를 반영할 때까지(역할별 픽률 합이 다시 100·200%로 맞을 때까지) 표에서 제외</li>
         </ul>
         <h4>주의할 점</h4>
@@ -873,7 +874,8 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     const el = $('staleNote');
     const t = INDEX && INDEX.collectedAt ? new Date(INDEX.collectedAt) : null;
     const days = t && !isNaN(t) ? (Date.now() - t.getTime()) / 864e5 : 0;
-    el.hidden = days < 2;
+    const cur = INDEX && (INDEX.servers.find(x => x.id === state.server) || {});
+    el.hidden = days < 2 || !!(cur && cur.waiting);
     if (!el.hidden) el.textContent = `공식 통계가 ${Math.floor(days)}일째 새로 반영되지 않았습니다. 자동 갱신이 멈췄을 수 있어, 지금 보이는 수치는 마지막으로 반영된 값입니다.`;
     $('loadError').hidden = true;
   }
@@ -883,6 +885,8 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     const el = $('patchNote');
     const meta = D.meta || {};
     const parts = [];
+    const entry = INDEX && INDEX.servers.find(x => x.id === state.server);
+    if (entry && entry.waiting) parts.push(`새 시즌이 시작돼 ${entry.label} 공식 통계가 아직 비어 있거나 경기 수가 너무 적습니다. 집계가 쌓일 때까지 지난 시즌 마지막 수치를 보여줍니다.`);
     if (meta.patchStart) {
       const days = Math.floor((Date.now() - new Date(meta.patchStart).getTime()) / 864e5) + 1;
       if (days >= 1 && days <= 60) parts.push(`통계가 초기화된 뒤 ${days}일차 데이터입니다.`);
