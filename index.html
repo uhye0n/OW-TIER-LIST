@@ -612,7 +612,8 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
           <li><b>★</b>: 전체 맵 종합에서는 상위(돌격 1위, 공격·지원 2위 안)가 아니지만 이 맵에서는 상위에 든 영웅</li>
           <li><b>▲▼</b>: 직전 기록 대비 티어 변동(기본 가중치·보정 기준)</li>
           <li><b>영웅 추이</b>: 하루 한 번 저장한 전체 맵 기록(지수는 기본 가중치·보정, 픽률·승률·밴률은 원본)</li>
-          <li><b>패치 감지</b>: 경기 수가 직전의 70% 아래로 떨어지면 새 패치로 보고, 7일 동안 지난 패치 마지막 기록과 비교(이틀 안에 경기 수가 회복되면 감지 취소)</li>
+          <li><b>패치 감지</b>: 그랜드마스터 경기 수가 직전의 70% 아래로 떨어지면 새 패치로 보고, 7일 동안 지난 패치 마지막 기록과 비교(이틀 안에 경기 수가 회복되면 감지 취소)</li>
+          <li><b>역할 변경</b>: 역할이 바뀐 영웅은 새 영웅으로 취급. 이전 역할 기록은 따로 보관하고, 공식 통계가 새 역할 경기를 반영할 때까지(역할별 픽률 합이 다시 100·200%로 맞을 때까지) 표에서 제외</li>
         </ul>
         <h4>주의할 점</h4>
         <ul class="m-list muted">
@@ -876,6 +877,8 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     if (!el.hidden) el.textContent = `공식 통계가 ${Math.floor(days)}일째 새로 반영되지 않았습니다. 자동 갱신이 멈췄을 수 있어, 지금 보이는 수치는 마지막으로 반영된 값입니다.`;
     $('loadError').hidden = true;
   }
+  // Korean topic particle by the final consonant of the last syllable (솜브라 → 는, 독트린 → 은)
+  const josa = (w, withCoda, without) => { const c = w.charCodeAt(w.length - 1) - 0xAC00; return c >= 0 && c < 11172 && c % 28 ? withCoda : without; };
   function renderPatch(){
     const el = $('patchNote');
     const meta = D.meta || {};
@@ -886,6 +889,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     }
     const ratio = meta.sampleRatio && meta.sampleRatio[curB()];
     if (ratio != null && ratio < 0.5) parts.push(`이 구간의 경기 수가 아직 지난 패치의 ${Math.round(ratio * 100)}% 수준이라 티어가 크게 바뀔 수 있습니다.`);
+    for (const p of meta.pending || []) parts.push(`${p.name}${josa(p.name, '은', '는')} ${p.from}에서 ${p.to}으로 역할이 바뀌어 새 영웅으로 다룹니다. 공식 통계에 아직 ${p.from} 시절 경기만 잡혀 있어, ${p.to} 기록이 반영될 때까지 표에서 뺐습니다.`);
     for (const e of [el, $('homePatch')]) { e.hidden = !parts.length; e.textContent = parts.join(' '); }
   }
 

@@ -60,7 +60,8 @@ K_BOUNDS = (5, 3000)  # clamp for the data-estimated prior weights
 CAP = 780          # ban-rate quantization cannot resolve match counts at or above this
 RELIABLE = 600     # below this the quantization estimate is taken as exact
 PATCH_DROP = 0.7   # grandmaster matches falling below this share of the previous run = stats were reset
-MG_RATIO = (1.5, 6.0)   # plausible master : grandmaster match ratio (observed 2.5-3.6 where both are exact)
+MG_RATIO = (1.5, 6.0)
+ROLE_CLEAN_TOL = 1.0     # after a role change, both roles' pick shares must be back within this of 100/200   # plausible master : grandmaster match ratio (observed 2.5-3.6 where both are exact)
 HISTORY_KEEP = 40
 PATCH_COMPARE_DAYS = 7   # after a reset, compare against the last pre-reset snapshot for this long
 MODEL_VERSION = "2026-10-07.1"  # part of the change hash: a model change recomputes even if the sources did not move
@@ -434,6 +435,23 @@ def default_mi(exp, bracket):
     return {h["id"]: v for h, v in zip(exp["heroes"], mi["all-maps"])}
 
 
+def retire_hero(hist, arc_path, h, old_role, name, img, at):
+    """A hero that changed role is a new hero from then on: its earlier records are kept under '<id>~<old role>'
+    in the daily archive and the history snapshots, so trends and change markers start fresh."""
+    rid = f"{h}~{old_role}"
+    for sn in (hist.get("snapshots") or []) + ([hist["patchBase"]] if hist.get("patchBase") else []):
+        sn["heroes"] = [rid if x == h else x for x in sn.get("heroes", [])]
+    arc = load_json(arc_path, None)
+    if arc:
+        for d in arc.get("days", []):
+            for b in d.get("b", {}).values():
+                if h in b.get("h", {}):
+                    b["h"][rid] = b["h"].pop(h)
+        arc.setdefault("retired", {})[rid] = {"name": f"{name} ({ROLE_LABEL[old_role]})", "role": old_role,
+                                              "img": img, "until": at}
+        write_json(arc_path, arc)
+
+
 def update_archive(path, exp):
     """Keep one all-maps entry per day (the day's latest data wins): per bracket the estimated matches and,
     per hero, [meta index, pick, win, ban] with the source (unsmoothed, bracket-merged) rates."""
@@ -450,6 +468,11 @@ def update_archive(path, exp):
                 continue
             h[hero["id"]] = [mi[hero["id"]], c[3], c[4], c[5]]
         entry["b"][b["id"]] = {"n": b["N"].get("all-maps"), "h": h}
+    same_day = next((x for x in arc.get("days", []) if x["d"] == day), None)
+    for bid, b in ((same_day or {}).get("b") or {}).items():
+        for k, v in b.get("h", {}).items():
+            if "~" in k and bid in entry["b"]:
+                entry["b"][bid]["h"].setdefault(k, v)
     arc["label"] = exp["meta"]["label"]
     arc["heroes"] = {x["id"]: {"name": x["name"], "role": x["role"], "img": x["img"]} for x in exp["heroes"]}
     arc["days"] = [x for x in arc.get("days", []) if x["d"] != day] + [entry]
@@ -596,7 +619,8 @@ def main():
     # ---- change detection
     def canon(s):
         return {r: {m: {h: raw[s][r][m].get(h) for h in hero_ids} for m in ALL} for r in RANKS + ["all"]}
-    hashes = {s: hashlib.sha256((MODEL_VERSION + json.dumps(canon(s), sort_keys=True)).encode()).hexdigest()[:16]
+    roles_key = {h: role_of[h] for h in hero_ids}
+    hashes = {s: hashlib.sha256((MODEL_VERSION + json.dumps([canon(s), roles_key], sort_keys=True)).encode()).hexdigest()[:16]
               for s, _, _, _ in SERVERS}
     prev_index = load_json(os.path.join(args.out, "index.json"), {}) or {}
     prev_hashes = {x["id"]: x.get("hash") for x in prev_index.get("servers", [])}
@@ -769,13 +793,13 @@ def main():
                 SM[m][h]["wr"] = mirror(SM[m][h]["wr"], SM[m][h]["pr"])
         return SM
 
-    def consts_smoothed(SM):
-        return {role: consts_of([(SM[m][h]["wr"], SM[m][h]["pr"], SM[m][h]["br"]) for m in map_ids for h in hero_ids
+    def consts_smoothed(SM, hs):
+        return {role: consts_of([(SM[m][h]["wr"], SM[m][h]["pr"], SM[m][h]["br"]) for m in map_ids for h in hs
                                  if role_of[h] == role and not SM[m][h]["raw"]["miss"]]) for role in ROLE_ORDER}
 
-    def consts_raw(KR):
+    def consts_raw(KR, hs):
         return {role: consts_of([(mirror(KR[m][h]["wr"], KR[m][h]["pr"]), KR[m][h]["pr"], KR[m][h]["br"])
-                                 for m in map_ids for h in hero_ids
+                                 for m in map_ids for h in hs
                                  if role_of[h] == role and not KR[m][h]["miss"] and KR[m][h]["wr"] is not None])
                 for role in ROLE_ORDER}
 
@@ -788,14 +812,17 @@ def main():
     def short(mp):
         return SHORT_NAMES.get(mp["id"]) or mp["name"].split(":")[-1].strip()
 
-    heroes_out = []
-    for h in hero_ids:
-        img = (meta_bz.get(h) or {}).get("img") or (meta_kr.get(h) or {}).get("img") or ""
-        heroes_out.append({"id": h, "name": meta_all[h]["name"], "role": role_of[h],
-                           "sub": sub_names.get(meta_all[h].get("sub"), meta_all[h].get("sub") or ""), "img": img})
-    roles_out = {role: {"label": ROLE_LABEL[role],
-                        "avg": round(ROLE_PICK_SUM[role] / sum(1 for h in hero_ids if role_of[h] == role), 3)}
-                 for role in sorted(ROLE_ORDER, key=ROLE_ORDER.get)}
+    def img_of(h):
+        return (meta_bz.get(h) or {}).get("img") or (meta_kr.get(h) or {}).get("img") or ""
+
+    def heroes_out_of(hs):
+        return [{"id": h, "name": meta_all[h]["name"], "role": role_of[h],
+                 "sub": sub_names.get(meta_all[h].get("sub"), meta_all[h].get("sub") or ""), "img": img_of(h)} for h in hs]
+
+    def roles_out_of(hs):
+        return {role: {"label": ROLE_LABEL[role],
+                       "avg": round(ROLE_PICK_SUM[role] / max(1, sum(1 for h in hs if role_of[h] == role)), 3)}
+                for role in sorted(ROLE_ORDER, key=ROLE_ORDER.get)}
     sources = {"nexon": "https://overwatch.nexon.com/hero/rate", "blizzard": "https://overwatch.blizzard.com/ko-kr/rates/"}
 
     index_servers = []
@@ -803,16 +830,47 @@ def main():
     for s, label, kind, _ in SERVERS:
         hist_path = os.path.join(args.history, f"{s}.json")
         hist = load_json(hist_path, {"snapshots": [], "patchStart": None}) or {"snapshots": [], "patchStart": None}
+        # ---- role changes: from the change on, the hero is a new hero. Its earlier records are kept apart, and it
+        #      stays off the tables until this server's numbers count its play in the new role (the source keeps
+        #      season totals, so right after a change they are still the old role's games)
+        changes = hist.setdefault("roleChanges", [])
+        prev_roles = hist.get("roles") or {}
+        hist_dirty = False
+        for h in hero_ids:
+            old = prev_roles.get(h)
+            if old and old != role_of[h] and old in ROLE_ORDER:
+                changes.append({"hero": h, "from": old, "to": role_of[h], "at": now_s})
+                retire_hero(hist, os.path.join(args.archive, f"{s}.json"), h, old, meta_all[h]["name"], img_of(h), now_s)
+                log(f"{label}: {h} changed role {old} -> {role_of[h]}; earlier records kept as {h}~{old}")
+        if prev_roles != {h: role_of[h] for h in hero_ids}:
+            hist["roles"] = {h: role_of[h] for h in hero_ids}
+            hist_dirty = True
+        rows_all = raw[s]["all"]["all-maps"]
+
+        def role_sum(role):
+            return sum(rows_all[x][0] for x in hero_ids if role_of[x] == role and rows_all.get(x))
+        pending = []
+        for c in changes:
+            if c.get("clean") or c["hero"] not in role_of:
+                continue
+            if all(abs(role_sum(r) - ROLE_PICK_SUM[r]) <= ROLE_CLEAN_TOL for r in (c["from"], c["to"])):
+                c["clean"] = now_s
+                hist_dirty = True
+                log(f"{label}: {c['hero']} now counted as {c['to']}, back on the tables")
+            else:
+                pending.append(c)
+        pend_ids = {c["hero"] for c in pending}
+        hs = [h for h in hero_ids if h not in pend_ids]
         snaps = hist.get("snapshots") or []
         brackets, mi_now, totals = [], {}, {}
         for gid, glabel, granks, _ in GROUPS:
             NP, KR = MERGED[(s, gid)]
             SM = smooth(s, gid)
-            C_sm, C_raw = consts_smoothed(SM), consts_raw(KR)
+            C_sm, C_raw = consts_smoothed(SM, hs), consts_raw(KR, hs)
             cells = {m: [[r1(SM[m][h]["pr"]), r1(SM[m][h]["wr"]), r1(SM[m][h]["br"]),
                           r1(SM[m][h]["raw"]["pr"]), r1(SM[m][h]["raw"]["wr"]), r1(SM[m][h]["raw"]["br"]),
-                          round(SM[m][h]["g"]), 1 if SM[m][h]["raw"]["miss"] else 0] for h in hero_ids] for m in ALL}
-            hero_roles = [{"role": role_of[h]} for h in hero_ids]
+                          round(SM[m][h]["g"]), 1 if SM[m][h]["raw"]["miss"] else 0] for h in hs] for m in ALL}
+            hero_roles = [{"role": role_of[h]} for h in hs]
             mi0 = mi_cells(hero_roles, map_ids, cells, C_sm)
             mi_now[gid] = mi0
             totals[gid] = int(NP["all-maps"])
@@ -823,10 +881,10 @@ def main():
                 "N": {m: int(round(NP[m])) for m in ALL},
                 "cells": cells, "mi0": mi0,
             })
-            mi = {m: dict(zip(hero_ids, mi0[m])) for m in ALL}
+            mi = {m: dict(zip(hs, mi0[m])) for m in ALL}
             parts = []
             for role in sorted(ROLE_ORDER, key=ROLE_ORDER.get):
-                top = [meta_all[h]["name"] for h in sorted((h for h in hero_ids if role_of[h] == role),
+                top = [meta_all[h]["name"] for h in sorted((h for h in hs if role_of[h] == role),
                                                           key=lambda h: -mi["all-maps"][h]) if tier(mi["all-maps"][h]) == "S"]
                 parts.append(f"{ROLE_LABEL[role]} S: {', '.join(top) or '없음'}")
             summaries.append(f"SUMMARY {label} {glabel}: 추정 {totals[gid]:,}경기 | " + " | ".join(parts))
@@ -852,8 +910,9 @@ def main():
                         hist.pop(k, None)
         if changed:
             snaps.append({"at": now_s, "hash": hashes[s], "totals": totals, "gm": cur_gm,
-                          "heroes": hero_ids, "mi": mi_now})
+                          "heroes": hs, "mi": mi_now})
             hist["snapshots"] = snaps[-HISTORY_KEEP:]
+        if changed or hist_dirty:
             write_json(hist_path, hist)
         # comparison base: for a week after a reset the last pre-reset snapshot, otherwise the previous snapshot
         in_patch_window = bool(hist.get("patchBase") and hist.get("patchStart")
@@ -870,8 +929,10 @@ def main():
             "meta": {"server": s, "label": label, "source": sources[kind], "collectedAt": now_s, "hash": hashes[s],
                      "shares": {r: round(shares[s][r] * 100, 2) for r in RANKS},
                      "patchStart": hist.get("patchStart"),
-                     "sampleRatio": {g: round(totals[g] / last_patch[g], 3) for g in totals if last_patch.get(g)}},
-            "roles": roles_out, "modes": mode_order, "heroes": heroes_out,
+                     "sampleRatio": {g: round(totals[g] / last_patch[g], 3) for g in totals if last_patch.get(g)},
+                     "pending": [{"id": c["hero"], "name": meta_all[c["hero"]]["name"], "from": ROLE_LABEL[c["from"]],
+                                  "to": ROLE_LABEL[c["to"]], "since": c["at"]} for c in pending]},
+            "roles": roles_out_of(hs), "modes": mode_order, "heroes": heroes_out_of(hs),
             "maps": [{"id": mp["id"], "name": mp["name"], "short": short(mp), "mode": mp["mode"]} for mp in maps],
             "brackets": brackets, "compare": compare,
         }
