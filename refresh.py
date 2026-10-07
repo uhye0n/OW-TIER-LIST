@@ -59,10 +59,11 @@ K0 = 80           # prior weight (games) for a hero's all-maps win rate
 K_BOUNDS = (5, 3000)  # clamp for the data-estimated prior weights
 CAP = 780          # ban-rate quantization cannot resolve match counts at or above this
 RELIABLE = 600     # below this the quantization estimate is taken as exact
-PATCH_DROP = 0.7   # total matches falling below this share of the previous run = stats were reset
+PATCH_DROP = 0.7   # grandmaster matches falling below this share of the previous run = stats were reset
+MG_RATIO = (1.5, 6.0)   # plausible master : grandmaster match ratio (observed 2.5-3.6 where both are exact)
 HISTORY_KEEP = 40
 PATCH_COMPARE_DAYS = 7   # after a reset, compare against the last pre-reset snapshot for this long
-MODEL_VERSION = "2026-09-27.3"  # part of the change hash: a model change recomputes even if the sources did not move
+MODEL_VERSION = "2026-10-07.1"  # part of the change hash: a model change recomputes even if the sources did not move
 FETCH_DEADLINE = 20 * 60        # seconds; beyond this the scrape is abandoned (the job limit is 30 minutes)
 FAIL_STREAK = 8                 # consecutive failed pages from one source = blocked / down, stop early
 
@@ -548,17 +549,33 @@ def main():
     for h in hero_ids:
         if h not in meta_kr or h not in meta_bz:
             log(f"NOTE hero {h} is listed by only one source")
+    # a hero listed before release (or not yet in competitive) has no play anywhere: leave it out until it does,
+    # otherwise its empty cells would score as a D-tier hero
+    played = {h for h in hero_ids for s, _, _, _ in SERVERS
+              if (raw[s]["all"]["all-maps"].get(h) or [0])[0] > 0}
+    for h in hero_ids:
+        if h not in played:
+            log(f"NOTE hero {h} has no competitive play on any server yet, left out")
+    hero_ids = [h for h in hero_ids if h in played]
     role_of = {h: meta_all[h]["role"] for h in hero_ids}
     for s, _, _, _ in SERVERS:
         alls = [json.dumps(raw[s][r]["all-maps"], sort_keys=True) for r in RANKS + ["all"]]
         if len(set(alls)) < len(alls):
             die(f"{s}: rank filter was not applied (identical data for different ranks)")
+        # pick shares must add up to the five slots; a single role may drift a few points when a hero changes
+        # role mid-season (Sombra moved from damage to support in Oct 2026 and her earlier games still count
+        # toward damage time), so per role only a looser bound applies
         for r in RANKS:
             rows = raw[s][r]["all-maps"]
+            grand = sum(rows[h][0] for h in hero_ids if rows.get(h))
+            if abs(grand - sum(ROLE_PICK_SUM.values())) > 3:
+                die(f"{s} {r} pick rates sum to {grand:.1f}, expected {sum(ROLE_PICK_SUM.values()):.0f}")
             for role, target in ROLE_PICK_SUM.items():
                 tot = sum(rows[h][0] for h in hero_ids if role_of[h] == role and rows.get(h))
-                if abs(tot - target) > 3:
+                if abs(tot - target) > 10:
                     die(f"{s} {r} {role} pick rates sum to {tot:.1f}, expected {target:.0f}")
+                if abs(tot - target) > 3:
+                    log(f"NOTE {s} {r} {role} pick rates sum to {tot:.1f} (role change this season?)")
     maps = [x for x in map_list
             if any(raw[s][r][x["id"]].get(h) for s, _, _, _ in SERVERS for r in RANKS for h in hero_ids)]
     for x in map_list:
@@ -606,14 +623,20 @@ def main():
     N = {}
     for s, _, _, _ in SERVERS:
         sh = shares[s]
-        N[s] = {"grandmaster": gm[s],
-                "master": impute_regress(nraw[s]["master"], gm[s], sh["master"] / max(sh["grandmaster"], 1e-6))}
+        # the mixture fit separates master from grandmaster poorly (their hero profiles are close), so the
+        # grandmaster share alone can come out near 0 and blow every lower rank up a thousandfold. The lower
+        # ranks are therefore scaled from master + grandmaster together, and the master:grandmaster size ratio
+        # used when no master map is exact is kept to a plausible range.
+        ratio_mg = min(MG_RATIO[1], max(MG_RATIO[0], sh["master"] / max(sh["grandmaster"], 1e-6)))
+        N[s] = {"grandmaster": gm[s], "master": impute_regress(nraw[s]["master"], gm[s], ratio_mg)}
         gm_nz = sorted(v for v in gm[s].values() if v > 0)
         gm_ref = {m: (gm[s][m] if gm[s][m] > 0 else (gm_nz[len(gm_nz) // 2] if gm_nz else 800)) for m in map_ids}
+        top_ref = {m: gm_ref[m] + N[s]["master"][m] for m in map_ids}
+        top_sh = max(sh["master"] + sh["grandmaster"], 0.005)
         for r in RANKS[:6]:
-            scale = sh[r] / max(sh["grandmaster"], 1e-6)
+            scale = sh[r] / top_sh
             N[s][r] = {m: (nraw[s][r][m] if nraw[s][r][m] is not None and nraw[s][r][m] < RELIABLE
-                           else int(max(800, round(gm_ref[m] * scale)))) for m in map_ids}
+                           else int(max(800, round(top_ref[m] * scale)))) for m in map_ids}
         # the six lower ranks: keep each map's total, but split it by that map's own rank mix (solved from the
         # official all-ranks numbers of the map) instead of the all-maps mix
         low = RANKS[:6]
@@ -810,22 +833,26 @@ def main():
 
         changed = not snaps or snaps[-1].get("hash") != hashes[s]
         prev = snaps[-1] if snaps else None
-        cur_total = sum(totals.values())
+        # reset detection uses the grandmaster count: it is read almost exactly from the ban-rate rounding,
+        # while the other ranks are scaled through estimated rank shares and wobble from run to run
+        cur_gm = int(N[s]["grandmaster"]["all-maps"])
         if changed and prev:
-            prev_total = sum(prev.get("totals", {}).values())
-            if prev_total and cur_total < PATCH_DROP * prev_total:
+            prev_gm = prev.get("gm")
+            if prev_gm and cur_gm < PATCH_DROP * prev_gm:
                 hist["patchStart"] = now_s          # stats were reset: a new patch began
                 hist["lastPatchTotals"] = prev.get("totals")
+                hist["lastPatchGm"] = prev_gm
                 hist["patchBase"] = prev
-            elif hist.get("patchStart") and hist.get("lastPatchTotals"):
+            elif hist.get("patchStart") and hist.get("lastPatchGm"):
                 # a reset cannot recover to the old match count within two days: that was a glitch
                 age = now - datetime.fromisoformat(hist["patchStart"])
-                if age < timedelta(days=2) and cur_total >= 0.9 * sum(hist["lastPatchTotals"].values()):
+                if age < timedelta(days=2) and cur_gm >= 0.9 * hist["lastPatchGm"]:
                     log(f"{label}: earlier patch detection undone (match counts recovered)")
-                    for k in ("patchStart", "lastPatchTotals", "patchBase"):
+                    for k in ("patchStart", "lastPatchTotals", "lastPatchGm", "patchBase"):
                         hist.pop(k, None)
         if changed:
-            snaps.append({"at": now_s, "hash": hashes[s], "totals": totals, "heroes": hero_ids, "mi": mi_now})
+            snaps.append({"at": now_s, "hash": hashes[s], "totals": totals, "gm": cur_gm,
+                          "heroes": hero_ids, "mi": mi_now})
             hist["snapshots"] = snaps[-HISTORY_KEEP:]
             write_json(hist_path, hist)
         # comparison base: for a week after a reset the last pre-reset snapshot, otherwise the previous snapshot
