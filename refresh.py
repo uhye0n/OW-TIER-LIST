@@ -174,6 +174,18 @@ def retry(fn, what, tries=4, source=None):
 # from 2 to 1 in Oct 2026), so they are read from each site's own filter list at the start of every run.
 RQ_NAME = ("경쟁전", "역할 고정")
 RQ = {"nexon": "2", "blizzard": "1"}
+BLIZZ_PAGE = {"html": ""}
+
+
+def blizz_maps():
+    """Maps Blizzard offers for competitive role queue: {id: (name, mode)} from its own map filter."""
+    sel = re.search(r'id="filter-map-select"(.*?)</select>', BLIZZ_PAGE["html"], re.S)
+    out = {}
+    for label, body in re.findall(r'<optgroup[^>]*label="([^"]*)"[^>]*>(.*?)</optgroup>', sel.group(1) if sel else "", re.S):
+        for rqs, title, value in re.findall(r'<option[^>]*data-rqs="([^"]*)"[^>]*data-title="([^"]*)"[^>]*value="([^"]*)"', body):
+            if RQ["blizzard"] in rqs.split(","):
+                out[value] = (title, label)
+    return out
 
 
 def resolve_rq():
@@ -187,6 +199,7 @@ def resolve_rq():
 
     def blizz():
         page = curl(BLIZZ.rsplit("data/", 1)[0])
+        BLIZZ_PAGE["html"] = page
         sel = re.search(r'id="filter-rq-select"(.*?)</select>', page, re.S)
         opts = re.findall(r'<option[^>]*data-title="([^"]*)"[^>]*value="([^"]*)"', sel.group(1)) if sel else []
         hit = [v for t, v in opts if all(w in t for w in RQ_NAME)]
@@ -521,6 +534,21 @@ def main():
                 for x in fmaps if x.get("parentValue") in modes]
     if len(map_list) < 10:
         die(f"only {len(map_list)} maps listed")
+    # a new map can show up on one site first: take the union, and a site that does not list a map has no data for it
+    has_map = {"nexon": {x["id"] for x in map_list}}
+    bmaps = blizz_maps()
+    if len(bmaps) >= 10:
+        has_map["blizzard"] = set(bmaps)
+        for mid, (name, mode) in bmaps.items():
+            if mid not in has_map["nexon"]:
+                map_list.append({"id": mid, "name": name, "mode": mode})
+                log(f"NOTE map {mid} ({name}) is listed by Blizzard only so far")
+    else:
+        log(f"WARNING Blizzard map list not readable ({len(bmaps)} maps); using Nexon's")
+        has_map["blizzard"] = set(has_map["nexon"])
+    for x in map_list:
+        if x["id"] not in has_map["blizzard"]:
+            log(f"NOTE map {x['id']} ({x['name']}) is listed by Nexon only so far")
     sub_names = {x["value"]: x["name"] for x in filters.get("roles") or [] if x.get("parentValue")}
     all_maps = ["all-maps"] + [x["id"] for x in map_list]
 
@@ -534,6 +562,8 @@ def main():
     def work(job):
         s, r, m = job
         kind, reg = src[s]
+        if m != "all-maps" and m not in has_map[kind]:
+            return job, ({}, {}, None)
         return job, (nexon_fetch if kind == "nexon" else blizz_fetch)(reg, r, m)
 
     failed, fatal = [], None
