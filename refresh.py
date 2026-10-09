@@ -733,10 +733,29 @@ def main():
             return 0                                   # no data at all: no matches (not "too many to resolve")
         return est_n([(rows.get(h) or [0, 0, 0])[2] for h in hero_ids])
     nraw = {s: {r: {m: n_of(raw[s][r][m]) for m in map_ids} for r in RANKS} for s, _, _, _ in SV}
-    shares = {s: rank_shares(raw[s]["all"]["all-maps"], {r: raw[s][r]["all-maps"] for r in RANKS}, hero_ids)
-              for s, _, _, _ in SV}
+    shares_fit = {s: rank_shares(raw[s]["all"]["all-maps"], {r: raw[s][r]["all-maps"] for r in RANKS}, hero_ids)
+                  for s, _, _, _ in SV}
+    # Early in a season the rank-mix fit rests on a handful of games and collapses (whole ranks at 0%, which then
+    # scales every match count wildly). The ladder's rank distribution barely moves between seasons, so the fit is
+    # blended with the last well-sampled one in proportion to how far the season has filled in, measured by
+    # grandmaster games (counted almost exactly) against the most seen before.
+    hist_prev = {s: load_json(os.path.join(args.history, f"{s}.json"), {}) or {} for s, _, _, _ in SV}
+    share_state, shares, rho_of = {}, {}, {}
     for s, label, _, _ in SV:
-        log(f"{label} match shares: " + ", ".join(f"{r} {shares[s][r] * 100:.1f}%" for r in RANKS))
+        gm_now = sum(v for v in nraw[s]["grandmaster"].values() if v and v < CAP)
+        gm_full = max(hist_prev[s].get("gmFull") or 0, 1)
+        base = hist_prev[s].get("shareBase")
+        rho = min(1.0, gm_now / gm_full) if base else 1.0
+        fit = shares_fit[s]
+        mix = {r: rho * fit[r] + (1 - rho) * (base or fit)[r] for r in RANKS}
+        has = {r: any(raw[s][r]["all-maps"].get(h) for h in hero_ids) for r in RANKS}
+        mix = {r: (mix[r] if has[r] else 0.0) for r in RANKS}
+        t = sum(mix.values()) or 1.0
+        shares[s] = {r: mix[r] / t for r in RANKS}
+        rho_of[s] = rho
+        share_state[s] = {"gmFull": max(gm_full, gm_now),
+                          "shareBase": shares[s] if rho >= 0.8 and all(has.values()) else base}
+        log(f"{label} match shares (fit weight {rho:.2f}): " + ", ".join(f"{r} {shares[s][r] * 100:.1f}%" for r in RANKS))
     gm = {}
     gm_ref = {"kr": "asia", "asia": "kr", "americas": "asia", "europe": "asia"}
     for s in [x for x in ("kr", "asia", "americas", "europe") if x in live_ids]:
@@ -744,7 +763,7 @@ def main():
         ref = gm.get(r_) or (nraw[r_]["grandmaster"] if r_ in live_ids else nraw[s]["grandmaster"])
         gm[s] = impute_offset(nraw[s]["grandmaster"], ref)
     N = {}
-    for s, _, _, _ in SV:
+    for s, label, _, _ in SV:
         sh = shares[s]
         # the mixture fit separates master from grandmaster poorly (their hero profiles are close), so the
         # grandmaster share alone can come out near 0 and blow every lower rank up a thousandfold. The lower
@@ -756,6 +775,18 @@ def main():
         gm_ref = {m: (gm[s][m] if gm[s][m] > 0 else (gm_nz[len(gm_nz) // 2] if gm_nz else 800)) for m in map_ids}
         top_ref = {m: gm_ref[m] + N[s]["master"][m] for m in map_ids}
         top_sh = max(sh["master"] + sh["grandmaster"], 0.005)
+        if not gm_nz:
+            # grandmaster has no usable games yet (early season): anchor on the ranks whose map counts are exact
+            exact = [r for r in RANKS[:7] if sh[r] > 0 and
+                     sum(1 for m in map_ids if nraw[s][r][m] and nraw[s][r][m] < RELIABLE) >= 0.6 * len(map_ids)]
+            if exact:
+                def med(r):
+                    v = sorted(nraw[s][r][m] for m in map_ids if nraw[s][r][m] and nraw[s][r][m] < RELIABLE)
+                    return v[len(v) // 2]
+                top_ref = {m: sum(nraw[s][r][m] if nraw[s][r][m] and nraw[s][r][m] < RELIABLE else med(r)
+                                  for r in exact) for m in map_ids}
+                top_sh = max(sum(sh[r] for r in exact), 0.005)
+                log(f"{label}: no grandmaster games yet, match counts anchored on {', '.join(exact)}")
         for r in RANKS[:6]:
             scale = sh[r] / top_sh
             N[s][r] = {m: (nraw[s][r][m] if nraw[s][r][m] is not None and nraw[s][r][m] < RELIABLE
@@ -765,6 +796,7 @@ def main():
         low = RANKS[:6]
         for m in map_ids:
             sm = rank_shares(raw[s]["all"][m], {r: raw[s][r][m] for r in RANKS}, hero_ids, iters=2000)
+            sm = {r: rho_of[s] * sm[r] + (1 - rho_of[s]) * sh[r] for r in RANKS}
             tot_low, w_low = sum(N[s][r][m] for r in low), sum(sm[r] for r in low)
             if w_low > 0.2:
                 for r in low:
@@ -935,6 +967,10 @@ def main():
         changes = hist.setdefault("roleChanges", [])
         prev_roles = hist.get("roles") or {}
         hist_dirty = False
+        for k, v in share_state[s].items():
+            if v is not None and hist.get(k) != v:
+                hist[k] = v
+                hist_dirty = True
         for h in hero_ids:
             old = prev_roles.get(h)
             if old and old != role_of[h] and old in ROLE_ORDER:
