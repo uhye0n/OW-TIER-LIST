@@ -893,6 +893,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     }
     const ratio = meta.sampleRatio && meta.sampleRatio[curB()];
     if (ratio != null && ratio < 0.5) parts.push(`이 구간의 경기 수가 아직 지난 패치의 ${Math.round(ratio * 100)}% 수준이라 티어가 크게 바뀔 수 있습니다.`);
+    if ((meta.absent || []).length) parts.push(`${meta.absent.join(', ')}${josa(meta.absent[meta.absent.length - 1], '은', '는')} 이 서버 공식 통계에 아직 없어 표에서 뺐습니다.`);
     for (const p of meta.pending || []) parts.push(`${p.name}${josa(p.name, '은', '는')} ${p.from}에서 ${p.to}으로 역할이 바뀌어 새 영웅으로 다룹니다. 공식 통계에 아직 ${p.from} 시절 경기만 잡혀 있어, ${p.to} 기록이 반영될 때까지 표에서 뺐습니다.`);
     for (const e of [el, $('homePatch')]) { e.hidden = !parts.length; e.textContent = parts.join(' '); }
   }

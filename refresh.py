@@ -665,15 +665,26 @@ def main():
     # reset): such a server keeps its last published numbers until every rank is consistent.
     TOTAL = sum(ROLE_PICK_SUM.values())
 
+    # a hero one site does not list yet (Nexon had no Doctrine for days after Season 5 started) leaves its role
+    # short on that site: such roles are left out of the sums, and the hero is left off that server's tables
+    def complete_roles(s):
+        rows = raw[s]["all"]["all-maps"]
+        return [role for role in ROLE_PICK_SUM if all(rows.get(h) for h in hero_ids if role_of[h] == role)]
+
     def pick_sum(s, r, role=None):
         rows = raw[s][r]["all-maps"]
-        return sum(rows[h][0] for h in hero_ids if rows.get(h) and (role is None or role_of[h] == role))
+        roles = [role] if role else complete_roles(s)
+        return sum(rows[h][0] for h in hero_ids if rows.get(h) and role_of[h] in roles)
+
+    def target_of(s):
+        return sum(ROLE_PICK_SUM[x] for x in complete_roles(s))
 
     def server_problem(s):
         grand = pick_sum(s, "all")
-        if abs(grand - TOTAL) > 3:
-            return f"all ranks: pick rates sum to {grand:.1f}, expected {TOTAL:.0f}"
-        for role, target in ROLE_PICK_SUM.items():
+        if abs(grand - target_of(s)) > 3:
+            return f"all ranks: pick rates sum to {grand:.1f}, expected {target_of(s):.0f}"
+        for role in complete_roles(s):
+            target = ROLE_PICK_SUM[role]
             tot = pick_sum(s, "all", role)
             if abs(tot - target) > 10:
                 return f"all ranks: {role} pick rates sum to {tot:.1f}, expected {target:.0f}"
@@ -691,7 +702,7 @@ def main():
     for s, label, _, _ in SV:
         for r in RANKS:
             grand = pick_sum(s, r)
-            if abs(grand - TOTAL) > RANK_SUM_TOL:
+            if abs(grand - target_of(s)) > RANK_SUM_TOL * target_of(s) / TOTAL:
                 log(f"NOTE {label} {r}: pick rates sum to {grand:.1f}, too few games yet, rank left out this run")
                 for m in raw[s][r]:
                     raw[s][r][m] = {}
@@ -988,13 +999,18 @@ def main():
         for c in changes:
             if c.get("clean") or c["hero"] not in role_of:
                 continue
-            if all(abs(role_sum(r) - ROLE_PICK_SUM[r]) <= ROLE_CLEAN_TOL for r in (c["from"], c["to"])):
+            if all(abs(role_sum(r) - ROLE_PICK_SUM[r]) <= ROLE_CLEAN_TOL
+                   for r in (c["from"], c["to"]) if r in complete_roles(s)):
                 c["clean"] = now_s
                 hist_dirty = True
                 log(f"{label}: {c['hero']} now counted as {c['to']}, back on the tables")
             else:
                 pending.append(c)
         pend_ids = {c["hero"] for c in pending}
+        absent = [h for h in hero_ids if not raw[s]["all"]["all-maps"].get(h)]
+        for h in absent:
+            log(f"{label}: {h} has no data on this source yet, left off its tables")
+        pend_ids |= set(absent)
         hs = [h for h in hero_ids if h not in pend_ids]
         snaps = hist.get("snapshots") or []
         brackets, mi_now, totals = [], {}, {}
@@ -1066,7 +1082,8 @@ def main():
                      "patchStart": hist.get("patchStart"),
                      "sampleRatio": {g: round(totals[g] / last_patch[g], 3) for g in totals if last_patch.get(g)},
                      "pending": [{"id": c["hero"], "name": meta_all[c["hero"]]["name"], "from": ROLE_LABEL[c["from"]],
-                                  "to": ROLE_LABEL[c["to"]], "since": c["at"]} for c in pending]},
+                                  "to": ROLE_LABEL[c["to"]], "since": c["at"]} for c in pending],
+                     "absent": [meta_all[h]["name"] for h in absent]},
             "roles": roles_out_of(hs), "modes": mode_order, "heroes": heroes_out_of(hs),
             "maps": [{"id": mp["id"], "name": mp["name"], "short": short(mp), "mode": mp["mode"]} for mp in maps],
             "brackets": brackets, "compare": compare,
