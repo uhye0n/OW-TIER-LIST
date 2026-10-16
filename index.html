@@ -850,7 +850,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   function renderRail(){
     const item = (id, name, cls) => {
       const n = BK().N[id]; const [rc, rl] = relOf(n);
-      return `<button type="button" class="map-btn ${cls || ''}" id="rb-${id}" data-map="${id}" aria-current="${state.map === id}" title="추정 ${fmtInt(n)}경기, 표본 신뢰도 ${rl}"><span class="dot ${rc}" aria-hidden="true"></span><span class="nm">${esc(name)}</span><span class="n">${fmtInt(n)}</span></button>`;
+      return `<button type="button" class="map-btn ${cls || ''}" id="rb-${id}" data-map="${id}" aria-current="${state.map === id}" title="${n ? `추정 ${fmtInt(n)}경기, 표본 신뢰도 ${rl}` : '공식 통계에 이 맵 기록 없음'}"><span class="dot ${rc}" aria-hidden="true"></span><span class="nm">${esc(name)}</span><span class="n">${n ? fmtInt(n) : '없음'}</span></button>`;
     };
     let html = item('all-maps', '전체 맵 종합', 'all');
     for (const mode of MODES) {
@@ -863,7 +863,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     let opts = `<option value="all-maps"${state.map === 'all-maps' ? ' selected' : ''}>전체 맵 종합 (추정 ${fmtInt(BK().N['all-maps'])}경기)</option>`;
     for (const mode of MODES) {
       opts += `<optgroup label="${mode}">`;
-      for (const m of MAPS.filter(x => x.mode === mode)) opts += `<option value="${m.id}"${state.map === m.id ? ' selected' : ''}>${esc(m.name)} (추정 ${fmtInt(BK().N[m.id])}경기)</option>`;
+      for (const m of MAPS.filter(x => x.mode === mode)) opts += `<option value="${m.id}"${state.map === m.id ? ' selected' : ''}>${esc(m.name)} (${BK().N[m.id] ? `추정 ${fmtInt(BK().N[m.id])}경기` : '공식 기록 없음'})</option>`;
       opts += `</optgroup>`;
     }
     $('mapSelect').innerHTML = opts;
@@ -977,7 +977,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         const n = B.N[m.id]; const [, rl] = relOf(n);
         html += `<button type="button" class="mcard" data-go="${m.id}" aria-label="${esc(m.name)} 상세 보기. 메타 ${esc(names(m.id))}">
           <span class="bg" aria-hidden="true">${bgImg(m.id)}</span>
-          <span class="mtop"><span class="mname">${esc(m.name)}</span><span class="mmeta${n < 150 ? ' low' : ''}" title="표본 신뢰도 ${rl}">추정 ${fmtInt(n)}경기${n < 150 ? ' · 표본 적음' : ''}</span></span>
+          <span class="mtop"><span class="mname">${esc(m.name)}</span><span class="mmeta${n < 150 ? ' low' : ''}" title="표본 신뢰도 ${rl}">${n ? `추정 ${fmtInt(n)}경기${n < 150 ? ' · 표본 적음' : ''}` : '공식 기록 없음'}</span></span>
           ${lineup(m.id)}
         </button>`;
       }
@@ -1004,7 +1004,9 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     const roleLabel = D.roles[state.role].label;
     $('mapName').textContent = isAll ? '전체 맵 종합' : m.name;
     $('modeTag').textContent = isAll ? `${MAP_IDS.length}개 맵` : m.mode;
-    $('sample').textContent = `${D.meta.label} ${BK().label}(${BK().ranks}) ${roleLabel}, 추정 ${fmtInt(n)}경기` + (isAll ? '' : `, 표본 신뢰도 ${rl}`);
+    $('sample').textContent = `${D.meta.label} ${BK().label}(${BK().ranks}) ${roleLabel}, ` + (n || isAll
+      ? `추정 ${fmtInt(n)}경기` + (isAll ? '' : `, 표본 신뢰도 ${rl}`)
+      : `공식 통계에 이 맵 기록이 없어${state.smooth ? ' 다른 서버의 이 맵 경향을 전체 맵 수치에 적용한 추정치' : ' 원본 수치 없음'}`);
 
     let ins;
     if (isAll) {
