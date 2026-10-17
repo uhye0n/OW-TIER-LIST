@@ -442,6 +442,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 .mname{font-family:var(--display);font-size:22px;line-height:1.08;text-shadow:0 1px 8px rgba(0,0,0,.6)}
 .mmeta{font-size:11.5px;font-weight:600;background:rgba(9,13,21,.62);padding:2px 8px;color:rgba(255,255,255,.85);white-space:nowrap}
 .mmeta.low{background:rgba(200,50,58,.85);color:#fff}
+.map-btn .n.err{color:var(--t-s);font-weight:700}
 .mmeta.est{background:rgba(9,13,21,.62);color:rgba(255,255,255,.85);border:1px dashed rgba(255,255,255,.45)}
 .lineup{display:grid;grid-template-columns:1fr 2fr 2fr;gap:8px}
 .grp{display:flex;flex-direction:column;gap:4px;min-width:0}
@@ -627,6 +628,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
           <li><b>▲▼</b>: 직전 기록 대비 티어 변동(기본 가중치·보정 기준)</li>
           <li><b>영웅 추이</b>: 하루 한 번 저장한 전체 맵 기록(지수는 기본 가중치·보정, 픽률·승률·밴률은 원본)</li>
           <li><b>패치 감지</b>: 그랜드마스터 경기 수가 직전의 70% 아래로 떨어지면 새 패치로 보고, 7일 동안 지난 패치 마지막 기록과 비교(이틀 안에 경기 수가 회복되면 감지 취소)</li>
+          <li><b>공식 통계 오류</b>: 다른 서버에는 기록이 있는데 이 서버 공식 통계만 빈 표로 주는 맵은 '공식 통계 오류'로 표시하고, 다른 서버의 이 맵 경향을 이 서버 전체 맵 수치에 적용한 추정치로 대신(예: 넥슨 할리우드)</li>
           <li><b>새 시즌 초반</b>: 공식 통계가 비어 있거나 경기가 너무 적어 픽률 합이 맞지 않는 서버는 지난 시즌 마지막 수치를 유지하고, 경기가 적은 랭크 하나는 그 회차에서만 제외</li>
           <li><b>역할 변경</b>: 역할이 바뀐 영웅은 새 영웅으로 취급. 이전 역할 기록은 따로 보관하고, 공식 통계가 새 역할 경기를 반영할 때까지(역할별 픽률 합이 다시 100·200%로 맞을 때까지) 표에서 제외</li>
         </ul>
@@ -872,7 +874,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   function renderRail(){
     const item = (id, name, cls) => {
       const n = BK().N[id]; const [rc, rl] = relOf(n);
-      return `<button type="button" class="map-btn ${cls || ''}" id="rb-${id}" data-map="${id}" aria-current="${state.map === id}" title="${hidden() ? '경기 수 비공개' : n ? `추정 ${fmtInt(n)}경기, 표본 신뢰도 ${rl}` : '공식 통계에 이 맵 기록 없음'}"><span class="dot ${rc}" aria-hidden="true"></span><span class="nm">${esc(name)}</span><span class="n">${hidden() ? '' : n ? fmtInt(n) : '없음'}</span></button>`;
+      return `<button type="button" class="map-btn ${cls || ''}" id="rb-${id}" data-map="${id}" aria-current="${state.map === id}" title="${hidden() ? '경기 수 비공개' : n ? `추정 ${fmtInt(n)}경기, 표본 신뢰도 ${rl}` : `공식 통계 오류: ${srcName()} 통계가 이 맵을 빈 표로 줍니다. 다른 서버 경향을 적용한 추정치입니다.`}"><span class="dot ${rc}" aria-hidden="true"></span><span class="nm">${esc(name)}</span><span class="n${n || hidden() ? '' : ' err'}">${hidden() ? '' : n ? fmtInt(n) : '오류'}</span></button>`;
     };
     let html = item('all-maps', '전체 맵 종합', 'all');
     for (const mode of MODES) {
@@ -885,7 +887,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     let opts = `<option value="all-maps"${state.map === 'all-maps' ? ' selected' : ''}>전체 맵 종합 (${nText(BK().N['all-maps'])})</option>`;
     for (const mode of MODES) {
       opts += `<optgroup label="${mode}">`;
-      for (const m of MAPS.filter(x => x.mode === mode)) opts += `<option value="${m.id}"${state.map === m.id ? ' selected' : ''}>${esc(m.name)} (${BK().N[m.id] ? `추정 ${fmtInt(BK().N[m.id])}경기` : '공식 기록 없음'})</option>`;
+      for (const m of MAPS.filter(x => x.mode === mode)) opts += `<option value="${m.id}"${state.map === m.id ? ' selected' : ''}>${esc(m.name)} (${BK().N[m.id] ? `추정 ${fmtInt(BK().N[m.id])}경기` : '공식 통계 오류'})</option>`;
       opts += `</optgroup>`;
     }
     $('mapSelect').innerHTML = opts;
@@ -1000,7 +1002,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         const n = B.N[m.id]; const [, rl] = relOf(n);
         html += `<button type="button" class="mcard" data-go="${m.id}" aria-label="${esc(m.name)} 상세 보기. 메타 ${esc(names(m.id))}">
           <span class="bg" aria-hidden="true">${bgImg(m.id)}</span>
-          <span class="mtop"><span class="mname">${esc(m.name)}</span>${n ? `<span class="mmeta${n < 150 ? ' low' : ''}" title="표본 신뢰도 ${rl}">추정 ${fmtInt(n)}경기${n < 150 ? ' · 표본 적음' : ''}</span>` : `<span class="mmeta est" title="${esc(D.meta.label)} 공식 통계에 이 맵 기록이 없어, 다른 서버에서 나타난 이 맵의 경향을 ${esc(D.meta.label)} 전체 맵 수치에 적용한 추정치입니다.">다른 서버 경향 추정</span>`}</span>
+          <span class="mtop"><span class="mname">${esc(m.name)}</span>${n ? `<span class="mmeta${n < 150 ? ' low' : ''}" title="표본 신뢰도 ${rl}">추정 ${fmtInt(n)}경기${n < 150 ? ' · 표본 적음' : ''}</span>` : `<span class="mmeta est" title="${esc(srcName())} 공식 통계가 이 맵을 빈 표로 주고 있습니다(공식 통계 오류). 다른 서버에서 나타난 이 맵의 경향을 ${esc(D.meta.label)} 전체 맵 수치에 적용한 추정치입니다.">공식 통계 오류 · 추정치</span>`}</span>
           ${lineup(m.id)}
         </button>`;
       }
@@ -1033,7 +1035,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     document.body.classList.toggle('no-maps', !MAP_IDS.length);
     $('sample').textContent = `${D.meta.label} ${BK().label}(${BK().ranks}) ${roleLabel}, ` + (n || isAll
       ? nText(n) + (isAll || hidden() ? '' : `, 표본 신뢰도 ${rl}`)
-      : `공식 통계에 이 맵 기록이 없어${state.smooth ? ' 다른 서버의 이 맵 경향을 전체 맵 수치에 적용한 추정치' : ' 원본 수치 없음'}`);
+      : `공식 통계 오류(${srcName()} 통계가 이 맵을 빈 표로 줌)${state.smooth ? ', 다른 서버의 이 맵 경향을 전체 맵 수치에 적용한 추정치' : ', 원본 수치 없음'}`);
 
     let ins;
     if (isAll) {
