@@ -443,8 +443,8 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 .mmeta{font-size:11.5px;font-weight:600;background:rgba(9,13,21,.62);padding:2px 8px;color:rgba(255,255,255,.85);white-space:nowrap}
 .mmeta.low{background:rgba(200,50,58,.85);color:#fff}
 .map-btn .n.err{color:var(--t-s);font-weight:700}
-.merr{display:flex;align-items:center;justify-content:center;min-height:81px;font-size:15px;font-weight:800;letter-spacing:.02em;color:#fff;background:rgba(200,50,58,.72)}
-.board-err{display:flex;align-items:center;justify-content:center;min-height:160px;border:1px solid var(--line);background:var(--panel);font-size:18px;font-weight:800;color:var(--t-s)}
+.merr{display:flex;align-items:center;justify-content:center;min-height:81px}
+.board-err{display:flex;align-items:center;justify-content:center;min-height:120px;border:1px solid var(--line);background:var(--panel)}
 body.map-err #scatterPanel,body.map-err #tablePanel{display:none}
 .heat td.hc.na{color:var(--faint);background:transparent}
 .lineup{display:grid;grid-template-columns:1fr 2fr 2fr;gap:8px}
@@ -1009,7 +1009,7 @@ body.map-err #scatterPanel,body.map-err #tablePanel{display:none}
         html += `<button type="button" class="mcard" data-go="${m.id}" aria-label="${esc(m.name)} 상세 보기. ${n ? '메타 ' + esc(names(m.id)) : '공식 통계 오류'}">
           <span class="bg" aria-hidden="true">${bgImg(m.id)}</span>
           <span class="mtop"><span class="mname">${esc(m.name)}</span>${n ? `<span class="mmeta${n < 150 ? ' low' : ''}" title="표본 신뢰도 ${rl}">추정 ${fmtInt(n)}경기${n < 150 ? ' · 표본 적음' : ''}</span>` : ''}</span>
-          ${n ? lineup(m.id) : `<span class="merr">공식 통계 오류</span>`}
+          ${n ? lineup(m.id) : `<span class="merr"><span class="mmeta low">공식 통계 오류</span></span>`}
         </button>`;
       }
       html += `</div></section>`;
@@ -1079,7 +1079,7 @@ body.map-err #scatterPanel,body.map-err #tablePanel{display:none}
     const err = mapErr(state.map);
     document.body.classList.toggle('map-err', err);
     if (err) {
-      html = `<div class="board-err">공식 통계 오류</div>`;
+      html = `<div class="board-err"><span class="mmeta low">공식 통계 오류</span></div>`;
       $('insight').textContent = '';
     }
     $('board').innerHTML = html;
