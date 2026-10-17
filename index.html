@@ -271,7 +271,7 @@ table.ctable{border-collapse:collapse;font-size:13px;font-variant-numeric:tabula
 .who .pt{width:30px;height:30px;border-radius:50%;object-fit:cover;flex:none;background:var(--panel-2)}
 .who .pt.sm{width:20px;height:20px}
 .heat th.hn .who{gap:6px}
-.patch-note{margin:8px 0 0;padding:8px 12px;border-left:3px solid var(--t-a);background:var(--panel);font-size:13.5px;max-width:78ch}
+.patch-note{margin:8px 0 0;padding:8px 12px;border-left:3px solid var(--t-a);background:var(--panel);font-size:13.5px}
 .ctable caption{text-align:left;font-size:12.5px;color:var(--muted);padding-bottom:4px}
 .detail .muted{color:var(--faint)}
 .chip.thin{opacity:.55}
@@ -317,7 +317,7 @@ body:not([data-view="home"]) #homeView,body:not([data-view="detail"]) #detailVie
 .crumb + .panel{margin-top:14px}
 .site-note{margin:14px 0 0;padding:10px 14px;border-left:3px solid var(--t-a);background:var(--panel);font-size:13.5px}
 .site-note.err{border-left-color:var(--t-s)}
-body[data-view="method"] .top .controls{visibility:hidden}
+body[data-view="method"] .viewbar .vserver{visibility:hidden}
 .dtools{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 22px;margin-top:12px;padding:10px 0 16px;border-bottom:1px solid var(--line)}
 .tgroup{display:flex;flex-direction:column;gap:5px;min-width:0}
 .tgl{font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.03em}
@@ -416,7 +416,15 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 
 /* ---- home: map meta, modes in two columns, wide short cards */
 .home-head.second{margin-top:40px}
-.crumb a.back{text-decoration:none;display:inline-block}
+/* view tabs + server switch, one bar under the title on every screen */
+.viewbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 20px;padding:10px 0;border-bottom:1px solid var(--line)}
+.vtabs{display:flex;gap:4px;flex-wrap:wrap}
+.vtab{position:relative;padding:8px 12px;font-weight:700;font-size:15px;color:var(--muted);text-decoration:none}
+.vtab:hover{color:var(--ink)}
+.vtab[aria-current="page"]{color:var(--ink)}
+.vtab[aria-current="page"]::after{content:"";position:absolute;left:12px;right:12px;bottom:-11px;height:3px;background:var(--ink)}
+.vtab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (max-width: 560px){ .viewbar{gap:8px} .vtabs{width:100%;justify-content:space-between} .vtab{padding:8px 6px;font-size:14.5px} .vtab[aria-current="page"]::after{left:6px;right:6px;bottom:-5px} .vserver{width:100%;display:flex;flex-wrap:nowrap} .vserver button{flex:1;padding:7px 4px} }
 .mgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:40px 28px;align-items:start}
 .mgroup{min-width:0}
 .mcol{display:grid;gap:40px;min-width:0;align-content:start}
@@ -455,19 +463,21 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 <noscript><p style="padding:16px">이 페이지는 자바스크립트가 켜져 있어야 티어표를 보여 줄 수 있습니다.</p></noscript>
 <div class="page">
   <header class="top">
-    <div>
-      <h1>오버워치 티어 리스트</h1>
-    </div>
-    <div class="controls">
-      <div class="segs"><div class="seg" role="group" aria-label="서버" id="segS"></div></div>
-    </div>
+    <h1>오버워치 티어 리스트</h1>
   </header>
+  <nav class="viewbar" aria-label="화면 선택">
+    <div class="vtabs">
+      <a class="vtab" href="./" data-view="home">한눈에 보기</a>
+      <a class="vtab" href="#tier" data-view="detail">맵·영웅 상세</a>
+      <a class="vtab" href="#method" data-view="method">계산 방식</a>
+    </div>
+    <div class="seg vserver" role="group" aria-label="서버" id="segS"></div>
+  </nav>
   <p class="site-note err" id="loadError" role="alert" hidden></p>
   <p class="site-note" id="staleNote" hidden></p>
 
 
   <section id="homeView">
-    <div class="crumb"><a class="back" href="#tier" data-view="detail">맵·영웅 상세 →</a><span>한눈에 보기</span></div>
     <div class="home-head"><h2>한눈에 보기</h2><span class="sample" id="homeSample"></span></div>
     <p class="home-sub" id="homeBoardSub"></p>
     <p class="patch-note" id="homePatch" hidden></p>
@@ -479,7 +489,6 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   </section>
 
   <div id="detailView">
-  <div class="crumb"><button type="button" class="back" data-view="home">← 한눈에 보기</button><span>맵·영웅 상세</span></div>
   <div class="dtools">
       <div class="tgroup"><span class="tgl">구간</span><div class="seg seg-b" role="group" aria-label="구간" id="segB"></div></div>
       <div class="tgroup"><span class="tgl">역할</span><div class="seg" role="group" aria-label="역할" id="seg"></div></div>
@@ -555,7 +564,6 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   </div>
 
   <div id="methodView">
-  <div class="crumb"><button type="button" class="back" data-view="home">← 한눈에 보기</button><span>계산 방식</span></div>
   <section class="panel method" id="method">
     <h3>계산 방식</h3>
     <div class="fresh-box" id="freshText"></div>
@@ -783,6 +791,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     $('segB').innerHTML = brs.map(x =>
       `<button type="button" data-bracket="${x.id}" aria-pressed="${state.bracket === x.id}" title="${esc(x.label)}: ${esc(x.ranks)}"><span class="bl">${esc(x.label)}</span><span class="rk${x.id === 'all' ? ' mini' : ''}">${(RANK_ICONS[x.id] || []).map(([f, n]) => `<img src="assets/ranks/${f}.png" alt="${n}" width="26" height="26" loading="lazy">`).join('')}</span></button>`).join('');
     document.body.dataset.view = state.view;
+    for (const a of document.querySelectorAll('.vtab')) { if (a.dataset.view === state.view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }
     $('seg').innerHTML = ROLES.map(([k, label]) =>
       `<button type="button" data-role="${k}" aria-pressed="${state.role === k}">${label}</button>`).join('');
     $('smooth').checked = state.smooth;
