@@ -416,9 +416,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 
 /* ---- home: map meta, modes in two columns, wide short cards */
 .home-head.second{margin-top:40px}
-.home-head .go-detail{margin-left:auto;align-self:center;border:1px solid var(--ink);background:var(--ink);color:var(--bg);padding:8px 14px;font-weight:700;font-size:14px;text-decoration:none;white-space:nowrap}
-.home-head .go-detail:hover{opacity:.88}
-.home-head .go-detail:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.crumb a.back{text-decoration:none;display:inline-block}
 .mgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:40px 28px;align-items:start}
 .mgroup{min-width:0}
 .mcol{display:grid;gap:40px;min-width:0;align-content:start}
@@ -469,7 +467,8 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 
 
   <section id="homeView">
-    <div class="home-head"><h2>한눈에 보기</h2><span class="sample" id="homeSample"></span><a class="go-detail" href="#tier" data-view="detail">맵·영웅 상세 보기 →</a></div>
+    <div class="crumb"><a class="back" href="#tier" data-view="detail">맵·영웅 상세 →</a><span>한눈에 보기</span></div>
+    <div class="home-head"><h2>한눈에 보기</h2><span class="sample" id="homeSample"></span></div>
     <p class="home-sub" id="homeBoardSub"></p>
     <p class="patch-note" id="homePatch" hidden></p>
     <p class="custom-note" id="homeCustom" hidden></p>
@@ -1380,7 +1379,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       if (goEl.dataset.goRole) { state.role = goEl.dataset.goRole; state.focus = +goEl.dataset.goHero; }
       setView('detail'); return;
     }
-    if (t.closest('.crumb .back') && history.state && (history.state.view === 'detail' || history.state.view === 'method') && history.length > 1) { history.back(); return; }
+    if (t.closest('.crumb .back[data-view="home"]') && history.state && (history.state.view === 'detail' || history.state.view === 'method') && history.length > 1) { history.back(); return; }
     const viewEl = t.closest('[data-view]');
     if (viewEl && (viewEl.tagName === 'BUTTON' || viewEl.tagName === 'A')) {
       if (viewEl.tagName === 'A') { if (e.ctrlKey || e.metaKey || e.shiftKey || e.button) return; e.preventDefault(); }
