@@ -128,6 +128,7 @@ button,select,input{font:inherit;color:inherit}
 .map-results .mr-mode{font-size:12px;color:var(--muted)}
 .map-results .mr-none{padding:10px 12px;font-size:13px;color:var(--muted)}
 .rail .map-btn.hide,.rail .mode.hide{display:none}
+body.no-maps .rail #mapSearchBox,body.no-maps .mapselect{display:none!important}
 
 /* board */
 #boardPanel{scroll-margin-top:calc(env(safe-area-inset-top,0px) + 14px)}
@@ -441,6 +442,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 .mname{font-family:var(--display);font-size:22px;line-height:1.08;text-shadow:0 1px 8px rgba(0,0,0,.6)}
 .mmeta{font-size:11.5px;font-weight:600;background:rgba(9,13,21,.62);padding:2px 8px;color:rgba(255,255,255,.85);white-space:nowrap}
 .mmeta.low{background:rgba(200,50,58,.85);color:#fff}
+.mmeta.est{background:rgba(9,13,21,.62);color:rgba(255,255,255,.85);border:1px dashed rgba(255,255,255,.45)}
 .lineup{display:grid;grid-template-columns:1fr 2fr 2fr;gap:8px}
 .grp{display:flex;flex-direction:column;gap:4px;min-width:0}
 .gl{font-size:10.5px;font-weight:700;letter-spacing:.04em;color:rgba(255,255,255,.7);border-bottom:1px solid rgba(255,255,255,.26);padding-bottom:2px}
@@ -483,9 +485,10 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     <p class="patch-note" id="homePatch" hidden></p>
     <p class="custom-note" id="homeCustom" hidden></p>
     <div class="rtboard" id="homeBoard"></div>
-    <div class="home-head second"><h2>맵별 메타</h2></div>
+    <div class="home-head second" id="mapsHead"><h2>맵별 메타</h2></div>
+    <p class="patch-note" id="noMapsNote" hidden></p>
     <div class="mgrid" id="mgrid"></div>
-    <p class="home-foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다. <button type="button" class="linklike" data-view="method">계산 방식 보기</button></p>
+    <p class="home-foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>, <a href="https://ow.blizzard.cn/herolist/" target="_blank" rel="noopener">守望先锋 英雄榜(넷이즈·중국)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다. <button type="button" class="linklike" data-view="method">계산 방식 보기</button></p>
   </section>
 
   <div id="detailView">
@@ -556,7 +559,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     </main>
   </div>
 
-  <section class="panel">
+  <section class="panel" id="heatPanel">
     <h3>맵별 티어 비교</h3>
     <p class="hint">행은 선택한 역할의 영웅(종합 지수 순), 열은 맵입니다. 칸이나 맵 이름을 누르면 위 티어표가 그 맵으로 바뀝니다.</p>
     <div class="heat-wrap"><table class="heat" id="heat"></table></div>
@@ -592,6 +595,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         <h4>데이터</h4>
         <ul class="m-list">
           <li>한국: 넥슨 영웅 통계 / 아시아·아메리카·유럽: 블리자드 영웅 통계</li>
+          <li>중국: 넷이즈 영웅 순위(英雄榜). 맵별 수치와 경기 수가 없어 전체 맵 티어만 제공. 픽 점유율은 역할별 픽률로, 밴 점유율은 다른 서버의 경기당 밴 수를 곱해 밴률로 환산</li>
           <li>경쟁전 역할 고정, PC, 8개 등급 × 전체 맵·맵별</li>
           <li>전체 구간은 공식 "전체 티어" 수치를 그대로 사용</li>
           <li>하위(브론즈~골드)·중위(플래티넘~다이아)·상위(마스터 이상)는 소속 등급을 맵마다 합산</li>
@@ -636,7 +640,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         </ul>
       </div>
     </div>
-    <p class="foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다.</p>
+    <p class="foot">출처: <a href="https://overwatch.nexon.com/hero/rate" target="_blank" rel="noopener">오버워치 영웅 통계(넥슨)</a>, <a href="https://overwatch.blizzard.com/ko-kr/rates/" target="_blank" rel="noopener">오버워치 영웅 통계(블리자드)</a>, <a href="https://ow.blizzard.cn/herolist/" target="_blank" rel="noopener">守望先锋 英雄榜(넷이즈·중국)</a>. 맵 이미지, 영웅 초상화, 등급 아이콘은 Blizzard Entertainment의 저작물입니다.</p>
   </section>
   </div>
 </div>
@@ -652,7 +656,10 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   const ROLES = [['tank','돌격'],['damage','공격'],['support','지원']];
   const TIERS = ['S','A','B','C','D'];
   const DEFAULT_W = {wr:50, pr:30, br:20};
-  const SOURCE_NAME = {nexon:'넥슨', blizzard:'블리자드'};
+  const SOURCE_NAME = {nexon:'넥슨', blizzard:'블리자드', netease:'넷이즈(중국)'};
+  // China publishes shares only: no per-map numbers and no match totals (the exported counts are nominal)
+  const hidden = () => !!(D && D.meta && D.meta.matchesHidden);
+  const nText = n => hidden() ? '경기 수 비공개' : `추정 ${fmtInt(n)}경기`;
   const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const store = {
@@ -691,7 +698,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 
   function setData(d){
     D = d; H = d.heroes; MAPS = d.maps; MAP_IDS = MAPS.map(m => m.id); ALL_IDS = ['all-maps'].concat(MAP_IDS);
-    MODES = (d.modes && d.modes.length) ? d.modes : Array.from(new Set(MAPS.map(m => m.mode)));
+    MODES = ((d.modes && d.modes.length) ? d.modes : Array.from(new Set(MAPS.map(m => m.mode)))).filter(mode => MAPS.some(m => m.mode === mode));
     MAP_BY_ID = Object.fromEntries(MAPS.map(m => [m.id, m])); BRS = d.brackets;
     if (!BRS.some(x => x.id === state.bracket)) state.bracket = (BRS.find(x => x.id === 'all') || BRS.find(x => x.id === 'high') || BRS[0]).id;
     if (!ALL_IDS.includes(state.map)) state.map = 'all-maps';
@@ -756,8 +763,12 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       }
       comp[m] = arr;
     }
+    // a server without map numbers (China) standardizes on its all-maps scores, with the spread taken back to
+    // map-pool scale by the ratio the other servers show, so its tiers spread like theirs
+    let ratio = 1;
+    if (!pool.length) { for (const i of idx) pool.push(comp['all-maps'][i]); ratio = (BK().poolRatio || {})[role] || 1; }
     const mu = pool.reduce((a, b) => a + b, 0) / pool.length;
-    const sd = Math.sqrt(pool.reduce((a, b) => a + (b - mu) * (b - mu), 0) / pool.length) || 1;
+    const sd = (Math.sqrt(pool.reduce((a, b) => a + (b - mu) * (b - mu), 0) / pool.length) || 1) / ratio;
     const out = {};
     for (const m of ALL_IDS) out[m] = comp[m].map(x => Number.isNaN(x) ? NaN : 50 + 10 * (x - mu) / sd);
     return out;
@@ -861,7 +872,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   function renderRail(){
     const item = (id, name, cls) => {
       const n = BK().N[id]; const [rc, rl] = relOf(n);
-      return `<button type="button" class="map-btn ${cls || ''}" id="rb-${id}" data-map="${id}" aria-current="${state.map === id}" title="${n ? `추정 ${fmtInt(n)}경기, 표본 신뢰도 ${rl}` : '공식 통계에 이 맵 기록 없음'}"><span class="dot ${rc}" aria-hidden="true"></span><span class="nm">${esc(name)}</span><span class="n">${n ? fmtInt(n) : '없음'}</span></button>`;
+      return `<button type="button" class="map-btn ${cls || ''}" id="rb-${id}" data-map="${id}" aria-current="${state.map === id}" title="${hidden() ? '경기 수 비공개' : n ? `추정 ${fmtInt(n)}경기, 표본 신뢰도 ${rl}` : '공식 통계에 이 맵 기록 없음'}"><span class="dot ${rc}" aria-hidden="true"></span><span class="nm">${esc(name)}</span><span class="n">${hidden() ? '' : n ? fmtInt(n) : '없음'}</span></button>`;
     };
     let html = item('all-maps', '전체 맵 종합', 'all');
     for (const mode of MODES) {
@@ -869,9 +880,9 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       for (const m of MAPS.filter(x => x.mode === mode)) html += item(m.id, m.name);
       html += `</div>`;
     }
-    html += `<div class="legend"><span><span class="dot r-hi"></span>표본 높음 (600경기 이상)</span><span><span class="dot r-mid"></span>보통 (150~599)</span><span><span class="dot r-lo"></span>낮음 (150 미만)</span></div>`;
+    if (!hidden()) html += `<div class="legend"><span><span class="dot r-hi"></span>표본 높음 (600경기 이상)</span><span><span class="dot r-mid"></span>보통 (150~599)</span><span><span class="dot r-lo"></span>낮음 (150 미만)</span></div>`;
     $('rail').innerHTML = html;
-    let opts = `<option value="all-maps"${state.map === 'all-maps' ? ' selected' : ''}>전체 맵 종합 (추정 ${fmtInt(BK().N['all-maps'])}경기)</option>`;
+    let opts = `<option value="all-maps"${state.map === 'all-maps' ? ' selected' : ''}>전체 맵 종합 (${nText(BK().N['all-maps'])})</option>`;
     for (const mode of MODES) {
       opts += `<optgroup label="${mode}">`;
       for (const m of MAPS.filter(x => x.mode === mode)) opts += `<option value="${m.id}"${state.map === m.id ? ' selected' : ''}>${esc(m.name)} (${BK().N[m.id] ? `추정 ${fmtInt(BK().N[m.id])}경기` : '공식 기록 없음'})</option>`;
@@ -904,6 +915,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     }
     const ratio = meta.sampleRatio && meta.sampleRatio[curB()];
     if (ratio != null && ratio < 0.5) parts.push(`이 구간의 경기 수가 아직 지난 패치의 ${Math.round(ratio * 100)}% 수준이라 티어가 크게 바뀔 수 있습니다.`);
+    if (meta.noMaps) parts.push(`${meta.label} 공식 통계(넷이즈)는 맵별 수치와 경기 수를 공개하지 않아, 전체 맵 기준 티어만 보여줍니다.`);
     if ((meta.absent || []).length) parts.push(`${meta.absent.join(', ')}${josa(meta.absent[meta.absent.length - 1], '은', '는')} 이 서버 공식 통계에 아직 없어 표에서 뺐습니다.`);
     for (const p of meta.pending || []) parts.push(`${p.name}${josa(p.name, '은', '는')} ${p.from}에서 ${p.to}으로 역할이 바뀌어 새 영웅으로 다룹니다. 공식 통계에 아직 ${p.from} 시절 경기만 잡혀 있어, ${p.to} 기록이 반영될 때까지 표에서 뺐습니다.`);
     for (const e of [el, $('homePatch')]) { e.hidden = !parts.length; e.textContent = parts.join(' '); }
@@ -988,7 +1000,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         const n = B.N[m.id]; const [, rl] = relOf(n);
         html += `<button type="button" class="mcard" data-go="${m.id}" aria-label="${esc(m.name)} 상세 보기. 메타 ${esc(names(m.id))}">
           <span class="bg" aria-hidden="true">${bgImg(m.id)}</span>
-          <span class="mtop"><span class="mname">${esc(m.name)}</span><span class="mmeta${n < 150 ? ' low' : ''}" title="표본 신뢰도 ${rl}">${n ? `추정 ${fmtInt(n)}경기${n < 150 ? ' · 표본 적음' : ''}` : '공식 기록 없음'}</span></span>
+          <span class="mtop"><span class="mname">${esc(m.name)}</span>${n ? `<span class="mmeta${n < 150 ? ' low' : ''}" title="표본 신뢰도 ${rl}">추정 ${fmtInt(n)}경기${n < 150 ? ' · 표본 적음' : ''}</span>` : `<span class="mmeta est" title="${esc(D.meta.label)} 공식 통계에 이 맵 기록이 없어, 다른 서버에서 나타난 이 맵의 경향을 ${esc(D.meta.label)} 전체 맵 수치에 적용한 추정치입니다.">다른 서버 경향 추정</span>`}</span>
           ${lineup(m.id)}
         </button>`;
       }
@@ -997,7 +1009,10 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     html += `</div>`;
     }
     $('mgrid').innerHTML = html;
-    $('homeSample').textContent = `${D.meta.label} · 전체 티어(${B.ranks}) · ${MAP_IDS.length}개 맵 종합 · 추정 ${fmtInt(B.N['all-maps'])}경기`;
+    $('homeSample').textContent = `${D.meta.label} · 전체 티어(${B.ranks}) · ` + (MAP_IDS.length ? `${MAP_IDS.length}개 맵 종합 · ` : '전체 맵 기준 · ') + nText(B.N['all-maps']);
+    const noMaps = !MAP_IDS.length;
+    $('mapsHead').hidden = noMaps; $('mgrid').hidden = noMaps; $('noMapsNote').hidden = !noMaps;
+    if (noMaps) $('noMapsNote').textContent = `${D.meta.label} 공식 통계는 맵별 수치를 공개하지 않아 맵별 메타가 없습니다.`;
     const custom = !state.smooth || ['wr','pr','br'].some(k => state.w[k] !== DEFAULT_W[k]);
     const cn = $('homeCustom');
     cn.hidden = !custom;
@@ -1014,14 +1029,16 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     const n = BK().N[state.map]; const [, rl] = relOf(n);
     const roleLabel = D.roles[state.role].label;
     $('mapName').textContent = isAll ? '전체 맵 종합' : m.name;
-    $('modeTag').textContent = isAll ? `${MAP_IDS.length}개 맵` : m.mode;
+    $('modeTag').textContent = isAll ? (MAP_IDS.length ? `${MAP_IDS.length}개 맵` : '맵 구분 없음') : m.mode;
+    document.body.classList.toggle('no-maps', !MAP_IDS.length);
     $('sample').textContent = `${D.meta.label} ${BK().label}(${BK().ranks}) ${roleLabel}, ` + (n || isAll
-      ? `추정 ${fmtInt(n)}경기` + (isAll ? '' : `, 표본 신뢰도 ${rl}`)
+      ? nText(n) + (isAll || hidden() ? '' : `, 표본 신뢰도 ${rl}`)
       : `공식 통계에 이 맵 기록이 없어${state.smooth ? ' 다른 서버의 이 맵 경향을 전체 맵 수치에 적용한 추정치' : ' 원본 수치 없음'}`);
 
     let ins;
     if (isAll) {
-      ins = `${MAP_IDS.length}개 맵을 모두 합친 종합 순위입니다. 맵을 고르면 그 맵의 티어와 종합 대비 오르내린 영웅이 나옵니다.`;
+      ins = MAP_IDS.length ? `${MAP_IDS.length}개 맵을 모두 합친 종합 순위입니다. 맵을 고르면 그 맵의 티어와 종합 대비 오르내린 영웅이 나옵니다.`
+        : `${D.meta.label} 공식 통계는 맵을 나누지 않아, 모든 경기를 합친 순위만 볼 수 있습니다.`;
     } else {
       const base = MI['all-maps'];
       const d = IDX.map(i => [i, mi[i] - base[i]]);
@@ -1046,7 +1063,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         const mv = move(state.map, i);
         const mark = mv && mv.dir === 'up' ? `<span class="mv up" title="${PREV.label} ${mv.from} → ${mv.to}">▲</span>` : mv && mv.dir === 'down' ? `<span class="mv down" title="${PREV.label} ${mv.from} → ${mv.to}">▼</span>` : '';
         const g = BK().cells[state.map][i][6];
-        const thin = g != null && g < 100;
+        const thin = !hidden() && g != null && g < 100;
         return `<button type="button" class="chip${state.focus === i ? ' on' : ''}${thin ? ' thin' : ''}" data-hero="${i}" aria-pressed="${state.focus === i}"${thin ? ` title="표본 적음(약 ${fmtInt(g)}판)"` : ''}>${portrait(i, 'pt')}<span class="nm">${esc(H[i].name)}</span><span class="sc">${Math.round(mi[i])}</span>${mark}</button>`;
       }).join('') : `<span class="none">해당 영웅 없음</span>`;
       html += `<div class="tier-row t-${t}"><div class="tier-label" aria-label="${t} 티어">${t}</div><div class="tier-chips">${chips}</div></div>`;
@@ -1264,7 +1281,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       h += `<td>${pct(r.v.pr)}${rawNote(r.v.pr, r.cell[3], miss)}</td>`;
       h += `<td>${miss && !state.smooth ? '—' : pct(r.v.wr)}${rawNote(r.v.wr, r.cell[4], miss)}</td>`;
       h += `<td>${pct(r.v.br)}${rawNote(r.v.br, r.cell[5], miss)}</td>`;
-      h += `<td>${miss ? '데이터 부족' : r.cell[6] < 1 ? '1판 미만' : '약 ' + fmtInt(r.cell[6]) + '판'}${miss ? '' : `<span class="raw">신뢰도 ${relHero(r.cell[6])}</span>`}</td>`;
+      h += `<td>${miss ? '데이터 부족' : hidden() ? '비공개' : r.cell[6] < 1 ? '1판 미만' : '약 ' + fmtInt(r.cell[6]) + '판'}${miss || hidden() ? '' : `<span class="raw">신뢰도 ${relHero(r.cell[6])}</span>`}</td>`;
       h += '</tr>';
     }
     h += '</tbody>';
@@ -1277,6 +1294,8 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   }
 
   function renderHeat(){
+    $('heatPanel').hidden = !MAP_IDS.length;
+    if (!MAP_IDS.length) { $('heat').innerHTML = ''; return; }
     const base = MI['all-maps'];
     const order = IDX.slice().sort((a, b) => base[b] - base[a]);
     const groups = MODES.map(mode => [mode, MAPS.filter(m => m.mode === mode)]);
@@ -1301,7 +1320,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   function renderConsts(){
     const f = (x, d) => x.toFixed(d);
     const k = BK().k;
-    $('kInfo').textContent = k ? `지금 ${BK().label} 구간 기준 승률 약 ${fmtInt(k.wr)}판, 픽률은 픽률 5% 영웅 약 ${fmtInt(k.pr5)}경기·20% 영웅 약 ${fmtInt(k.pr20)}경기, 밴률 5% 영웅 약 ${fmtInt(k.br5)}경기` : '';
+    $('kInfo').textContent = k && hidden() ? `${D.meta.label}은 경기 수를 공개하지 않아, 표본 보정 강도는 다른 서버에서 추정한 값을 씁니다.` : k ? `지금 ${BK().label} 구간 기준 승률 약 ${fmtInt(k.wr)}판, 픽률은 픽률 5% 영웅 약 ${fmtInt(k.pr5)}경기·20% 영웅 약 ${fmtInt(k.pr20)}경기, 밴률 5% 영웅 약 ${fmtInt(k.br5)}경기` : '';
     let h = `<caption>현재 상수 (${esc(D.meta.label)} · ${esc(BK().label)} 구간, 보정값 기준)</caption><thead><tr><th>역할</th><th>σ승률</th><th>μ픽률</th><th>σ픽률</th><th>μ밴률</th><th>σ밴률</th></tr></thead><tbody>`;
     for (const [k, label] of ROLES) {
       const c = BK().c[k];

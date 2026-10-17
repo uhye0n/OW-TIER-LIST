@@ -40,7 +40,14 @@ SERVERS = [  # id, label, source, source region value
     ("asia", "아시아", "blizzard", "Asia"),
     ("americas", "아메리카", "blizzard", "Americas"),
     ("europe", "유럽", "blizzard", "Europe"),
+    ("china", "중국", "netease", "china"),
 ]
+NETEASE = "https://webapi.blizzard.cn/ow-armory-server/hero_leaderboard"
+CN_RANK = {"bronze": "Bronze", "silver": "Silver", "gold": "Gold", "platinum": "Platinum", "emerald": "Emerald",
+           "diamond": "Diamond", "master": "Master", "grandmaster": "Grandmaster", None: "-127"}
+CN_ROLE = {"1": "damage", "2": "tank", "3": "support"}
+CN_NOMINAL = 1_000_000   # China publishes shares only: match counts are a fixed nominal total split by rank share
+CN = {"season": None}
 PRIOR_SERVERS = ["asia", "americas", "europe"]   # pooled for map-effect priors
 RANKS = ["bronze", "silver", "gold", "platinum", "emerald", "diamond", "master", "grandmaster"]
 GROUPS = [  # id, label, rank label, ranks
@@ -187,6 +194,58 @@ def blizz_maps():
             if RQ["blizzard"] in rqs.split(","):
                 out[value] = (title, label)
     return out
+
+
+def cn_season(start):
+    """Current China season: the highest season number the leaderboard answers with data, searching up from the
+    last one seen (the site numbers seasons like the rest of the game, e.g. 5 for Season 5 of 2026)."""
+    def has(n):
+        try:
+            d = json.loads(curl(f"{NETEASE}?game_mode=jingji&season={n}&mmr=-127", ["Referer: https://ow.blizzard.cn/herolist/"]))
+            return d.get("code") == 0 and len(d.get("data") or []) >= 10
+        except Exception:  # noqa: BLE001
+            return False
+    n = max(1, int(start or 1))
+    if not has(n):
+        k = n - 1
+        while k >= 1 and not has(k):
+            k -= 1
+        if k < 1:
+            raise ValueError("no China season with data")
+        n = k
+    while has(n + 1):
+        n += 1
+    return n
+
+
+def cn_fetch(rank):
+    """China (NetEase) leaderboard, competitive role queue only. It publishes each hero's share of all picks and of
+    all bans; picks are turned into the per-slot shares the other sites use (role sums 100/200/200), bans stay a
+    share here and are scaled to per-match ban rates once the other servers' totals are known."""
+    q = f"game_mode=jingji&season={CN['season']}&mmr={CN_RANK[rank]}"
+
+    def go():
+        d = json.loads(curl(f"{NETEASE}?{q}", ["Referer: https://ow.blizzard.cn/herolist/"]))
+        if d.get("code") != 0:
+            raise ValueError(f"china {d.get('code')} {d.get('message')}")
+        lst = d.get("data") or []
+        if len(lst) < 40 or abs(sum(x.get("selection_ratio") or 0 for x in lst) - 100) > 1.5:
+            return {}, {}, None                       # this rank has too few games yet
+        role_sum = {}
+        for x in lst:
+            role_sum[CN_ROLE.get(str(x.get("hero_type")))] = role_sum.get(CN_ROLE.get(str(x.get("hero_type"))), 0) + (x.get("selection_ratio") or 0)
+        rows, meta = {}, {}
+        for x in lst:
+            role = CN_ROLE.get(str(x.get("hero_type")))
+            if role not in ROLE_PICK_SUM or not role_sum.get(role):
+                continue
+            sel, wr, ban = x.get("selection_ratio"), x.get("win_ratio"), x.get("ban_ratio") or 0
+            hid = x["hero_id"]
+            rows[hid] = None if sel is None or wr is None else [sel / role_sum[role] * ROLE_PICK_SUM[role], float(wr), float(ban)]
+            meta[hid] = {"name": hid, "role": role, "sub": None, "img": None}
+        return rows, meta, None
+
+    return retry(go, f"china {rank or 'all'}", source="netease")
 
 
 def resolve_rq():
@@ -430,21 +489,41 @@ def half_up(x):
     return int(math.floor(x + 0.5))
 
 
-def mi_cells(heroes, map_ids, cells, consts, w=(0.5, 0.3, 0.2)):
+def _comp(c, C, w=(0.5, 0.3, 0.2)):
+    prav = max(0.1, c[0]) / max(0.3, 1 - c[2] / 100)
+    z = ((c[1] - 50) / C["wr_sd"], (math.log(prav) - C["pr_mu"]) / C["pr_sd"],
+         (math.log(1 + max(0.0, c[2])) - C["br_mu"]) / C["br_sd"])
+    return w[0] * z[0] + w[1] * z[1] + w[2] * z[2]
+
+
+def pool_ratio(heroes, map_ids, cells, consts):
+    """Per role: spread of the all-maps composites over the spread of the map x hero pool. A server without map
+    data (China) scales its all-maps scores by this, so its tiers spread like everyone else's."""
+    out = {}
+    for role in ROLE_ORDER:
+        idx = [i for i, h in enumerate(heroes) if h["role"] == role]
+        a = [_comp(cells["all-maps"][i], consts[role]) for i in idx]
+        p = [_comp(cells[m][i], consts[role]) for m in map_ids for i in idx]
+        if len(a) > 2 and len(p) > 2 and st.pstdev(p) > 0:
+            out[role] = st.pstdev(a) / st.pstdev(p)
+    return out
+
+
+def mi_cells(heroes, map_ids, cells, consts, w=(0.5, 0.3, 0.2), ratio=None):
     """Meta index from exported (rounded) smoothed cells, exactly as the page computes it with default weights:
-    per role, composite of the standardized scores, scaled to mean 50 / sd 10 on the map x hero pool."""
+    per role, composite of the standardized scores, scaled to mean 50 / sd 10 on the map x hero pool (a server
+    without map data uses its all-maps scores, with the spread taken back to pool scale by `ratio`)."""
     out = {m: [None] * len(heroes) for m in cells}
     for role in ROLE_ORDER:
         C = consts[role]
         idx = [i for i, h in enumerate(heroes) if h["role"] == role]
 
         def comp(c):
-            prav = max(0.1, c[0]) / max(0.3, 1 - c[2] / 100)
-            z = ((c[1] - 50) / C["wr_sd"], (math.log(prav) - C["pr_mu"]) / C["pr_sd"],
-                 (math.log(1 + max(0.0, c[2])) - C["br_mu"]) / C["br_sd"])
-            return w[0] * z[0] + w[1] * z[1] + w[2] * z[2]
+            return _comp(c, C, w)
         pool = [comp(cells[m][i]) for m in map_ids for i in idx] or [comp(cells["all-maps"][i]) for i in idx]
         mu, sd = st.mean(pool), (st.pstdev(pool) or 1.0)
+        if not map_ids and ratio and ratio.get(role):
+            sd = sd / ratio[role]
         for m in cells:
             for i in idx:
                 out[m][i] = half_up(50 + 10 * (comp(cells[m][i]) - mu) / sd)
@@ -455,7 +534,7 @@ def mi_cells(heroes, map_ids, cells, consts, w=(0.5, 0.3, 0.2)):
 def default_mi(exp, bracket):
     if bracket.get("mi0"):
         return {h["id"]: v for h, v in zip(exp["heroes"], bracket["mi0"]["all-maps"])}
-    mi = mi_cells(exp["heroes"], [m["id"] for m in exp["maps"]], bracket["cells"], bracket["c"])
+    mi = mi_cells(exp["heroes"], [m["id"] for m in exp["maps"]], bracket["cells"], bracket["c"], ratio=bracket.get("poolRatio"))
     return {h["id"]: v for h, v in zip(exp["heroes"], mi["all-maps"])}
 
 
@@ -579,7 +658,13 @@ def main():
     for sv in SERVERS:
         s_, _, kind, reg = sv
         try:
-            rows, _, _ = (nexon_fetch if kind == "nexon" else blizz_fetch)(reg, None, "all-maps")
+            if kind == "netease":
+                prev_hist = load_json(os.path.join(args.history, f"{s_}.json"), {}) or {}
+                CN["season"] = retry(lambda: cn_season(prev_hist.get("season") or 5), "china season")
+                log(f"China season {CN['season']}")
+                rows, _, _ = cn_fetch(None)
+            else:
+                rows, _, _ = (nexon_fetch if kind == "nexon" else blizz_fetch)(reg, None, "all-maps")
         except RuntimeError as e:
             log(f"WARNING {sv[1]}: source not reachable ({e}), keeping the last published numbers")
             continue
@@ -599,13 +684,15 @@ def main():
     src = {s: (kind, reg) for s, _, kind, reg in SV}
     log(f"Fetching {len(jobs)} stat pages...")
     raw = {s: {r: {} for r in RANKS + ["all"]} for s, _, _, _ in SV}
-    meta_kr, meta_bz = {}, {}
+    meta_kr, meta_bz, meta_cn = {}, {}, {}
 
     def work(job):
         s, r, m = job
         kind, reg = src[s]
-        if m != "all-maps" and m not in has_map[kind]:
+        if m != "all-maps" and m not in has_map.get(kind, ()):
             return job, ({}, {}, None)
+        if kind == "netease":
+            return job, cn_fetch(r)
         return job, (nexon_fetch if kind == "nexon" else blizz_fetch)(reg, r, m)
 
     failed, fatal = [], None
@@ -626,7 +713,7 @@ def main():
                     break
                 continue
             raw[s][r or "all"][m] = rows
-            (meta_kr if s == "kr" else meta_bz).update(meta)
+            (meta_kr if s == "kr" else meta_cn if src[s][0] == "netease" else meta_bz).update(meta)
     if fatal:
         die(f"fetch failed ({len(failed)} pages): {fatal}")
     if len(failed) > 0.05 * len(jobs):
@@ -636,8 +723,26 @@ def main():
         raw[s][r or "all"][m] = {}
     log(f"Fetched in {time.time() - t0:.0f}s")
 
+    # ---- China: its hero ids drop the hyphen (jetpackcat), and its bans are shares of all bans. A per-match ban
+    #      rate is that share times the bans cast per match, taken from the other servers' totals for the rank.
+    known = {h.replace("-", ""): h for h in list(meta_bz) + list(meta_kr)}
+    for s, _, kind, _ in SV:
+        if kind != "netease":
+            continue
+        for r in RANKS + ["all"]:
+            for m in list(raw[s][r]):
+                raw[s][r][m] = {known.get(h, h): v for h, v in raw[s][r][m].items()}
+        meta_cn = {known.get(h, h): v for h, v in meta_cn.items()}
+        others = [x for x, _, k, _ in SV if k != "netease"]
+        for r in RANKS + ["all"]:
+            tots = [sum(v[2] for v in raw[o][r]["all-maps"].values() if v) for o in others if raw[o][r].get("all-maps")]
+            factor = (st.median(tots) if tots else 400.0) / 100
+            for h, v in raw[s][r].get("all-maps", {}).items():
+                if v:
+                    v[2] = v[2] * factor
+
     # ---- heroes and validation
-    meta_all = {**meta_bz, **meta_kr}      # Korean names and roles from Nexon when both have the hero
+    meta_all = {**meta_cn, **meta_bz, **meta_kr}      # Korean names and roles from Nexon when both have the hero
     hero_ids = [h for h in meta_all if meta_all[h]["role"] in ROLE_ORDER]
     hero_ids.sort(key=lambda h: (ROLE_ORDER[meta_all[h]["role"]], meta_all[h]["name"]))
     if len(hero_ids) < 40:
@@ -758,14 +863,22 @@ def main():
         base = hist_prev[s].get("shareBase")
         rho = min(1.0, gm_now / gm_full) if base else 1.0
         fit = shares_fit[s]
+        if src[s][0] == "netease":
+            # China leaves some ranks out entirely (no emerald table), which throws the mixture fit off; ladders
+            # are shaped alike everywhere, so it takes the other servers' average rank mix instead
+            others = [shares[x] for x in shares]
+            base, rho = None, 1.0
+            if others:
+                fit = {r: st.mean(o[r] for o in others) for r in RANKS}
         mix = {r: rho * fit[r] + (1 - rho) * (base or fit)[r] for r in RANKS}
         has = {r: any(raw[s][r]["all-maps"].get(h) for h in hero_ids) for r in RANKS}
         mix = {r: (mix[r] if has[r] else 0.0) for r in RANKS}
         t = sum(mix.values()) or 1.0
         shares[s] = {r: mix[r] / t for r in RANKS}
         rho_of[s] = rho
-        share_state[s] = {"gmFull": max(gm_full, gm_now),
-                          "shareBase": shares[s] if rho >= 0.8 and all(has.values()) else base}
+        share_state[s] = ({} if src[s][0] == "netease" else
+                          {"gmFull": max(gm_full, gm_now),
+                           "shareBase": shares[s] if rho >= 0.8 and all(has.values()) else base})
         log(f"{label} match shares (fit weight {rho:.2f}): " + ", ".join(f"{r} {shares[s][r] * 100:.1f}%" for r in RANKS))
     gm = {}
     gm_ref = {"kr": "asia", "asia": "kr", "americas": "asia", "europe": "asia"}
@@ -776,6 +889,11 @@ def main():
     N = {}
     for s, label, _, _ in SV:
         sh = shares[s]
+        if src[s][0] == "netease":
+            # no map split and no countable match totals: a nominal total split by the fitted rank shares, so the
+            # brackets weigh their ranks correctly; the page does not show these numbers
+            N[s] = {r: {**{m: 0 for m in map_ids}, "all-maps": int(round(CN_NOMINAL * sh[r]))} for r in RANKS}
+            continue
         # the mixture fit separates master from grandmaster poorly (their hero profiles are close), so the
         # grandmaster share alone can come out near 0 and blow every lower rank up a thousandfold. The lower
         # ranks are therefore scaled from master + grandmaster together, and the master:grandmaster size ratio
@@ -935,13 +1053,13 @@ def main():
                 SM[m][h]["wr"] = mirror(SM[m][h]["wr"], SM[m][h]["pr"])
         return SM
 
-    def consts_smoothed(SM, hs):
-        return {role: consts_of([(SM[m][h]["wr"], SM[m][h]["pr"], SM[m][h]["br"]) for m in map_ids for h in hs
+    def consts_smoothed(SM, hs, ms):
+        return {role: consts_of([(SM[m][h]["wr"], SM[m][h]["pr"], SM[m][h]["br"]) for m in ms for h in hs
                                  if role_of[h] == role and not SM[m][h]["raw"]["miss"]]) for role in ROLE_ORDER}
 
-    def consts_raw(KR, hs):
+    def consts_raw(KR, hs, ms):
         return {role: consts_of([(mirror(KR[m][h]["wr"], KR[m][h]["pr"]), KR[m][h]["pr"], KR[m][h]["br"])
-                                 for m in map_ids for h in hs
+                                 for m in ms for h in hs
                                  if role_of[h] == role and not KR[m][h]["miss"] and KR[m][h]["wr"] is not None])
                 for role in ROLE_ORDER}
 
@@ -965,9 +1083,11 @@ def main():
         return {role: {"label": ROLE_LABEL[role],
                        "avg": round(ROLE_PICK_SUM[role] / max(1, sum(1 for h in hs if role_of[h] == role)), 3)}
                 for role in sorted(ROLE_ORDER, key=ROLE_ORDER.get)}
-    sources = {"nexon": "https://overwatch.nexon.com/hero/rate", "blizzard": "https://overwatch.blizzard.com/ko-kr/rates/"}
+    sources = {"nexon": "https://overwatch.nexon.com/hero/rate", "blizzard": "https://overwatch.blizzard.com/ko-kr/rates/",
+               "netease": "https://ow.blizzard.cn/herolist/"}
 
     index_servers = []
+    POOL_RATIOS = {}
     summaries = []
     for s, label, kind, _ in SV:
         hist_path = os.path.join(args.history, f"{s}.json")
@@ -1014,25 +1134,36 @@ def main():
         hs = [h for h in hero_ids if h not in pend_ids]
         snaps = hist.get("snapshots") or []
         brackets, mi_now, totals = [], {}, {}
+        no_maps = kind == "netease"                     # China publishes no per-map numbers
+        mids = [] if no_maps else map_ids
+        ALLs = ["all-maps"] + mids
         for gid, glabel, granks, _ in GROUPS:
             NP, KR = MERGED[(s, gid)]
             SM = smooth(s, gid)
-            C_sm, C_raw = consts_smoothed(SM, hs), consts_raw(KR, hs)
+            ms_c = ["all-maps"] if no_maps else map_ids
+            C_sm, C_raw = consts_smoothed(SM, hs, ms_c), consts_raw(KR, hs, ms_c)
             cells = {m: [[r1(SM[m][h]["pr"]), r1(SM[m][h]["wr"]), r1(SM[m][h]["br"]),
                           r1(SM[m][h]["raw"]["pr"]), r1(SM[m][h]["raw"]["wr"]), r1(SM[m][h]["raw"]["br"]),
-                          round(SM[m][h]["g"]), 1 if SM[m][h]["raw"]["miss"] else 0] for h in hs] for m in ALL}
+                          round(SM[m][h]["g"]), 1 if SM[m][h]["raw"]["miss"] else 0] for h in hs] for m in ALLs}
             hero_roles = [{"role": role_of[h]} for h in hs]
-            mi0 = mi_cells(hero_roles, map_ids, cells, C_sm)
+            ratio = None
+            if no_maps:
+                rs = POOL_RATIOS.get(gid) or {}
+                ratio = {role: round(st.median(v), 3) for role, v in rs.items() if v} or None
+            else:
+                for role, v in pool_ratio(hero_roles, map_ids, cells, C_sm).items():
+                    POOL_RATIOS.setdefault(gid, {}).setdefault(role, []).append(v)
+            mi0 = mi_cells(hero_roles, mids, cells, C_sm, ratio=ratio)
             mi_now[gid] = mi0
             totals[gid] = int(NP["all-maps"])
             brackets.append({
                 "id": gid, "label": glabel, "ranks": granks, "c": C_sm, "cr": C_raw,
                 "k": {"wr": round(KW[gid]["wr"]), "t_wr": round(KW[gid]["t_wr"], 2),
                       "pr5": round(k_pr(gid, 5)), "pr20": round(k_pr(gid, 20)), "br5": round(k_br(gid, 5))},
-                "N": {m: int(round(NP[m])) for m in ALL},
-                "cells": cells, "mi0": mi0,
+                "N": {m: int(round(NP[m])) for m in ALLs},
+                "cells": cells, "mi0": mi0, **({"poolRatio": ratio} if ratio else {}),
             })
-            mi = {m: dict(zip(hs, mi0[m])) for m in ALL}
+            mi = {m: dict(zip(hs, mi0[m])) for m in ALLs}
             parts = []
             for role in sorted(ROLE_ORDER, key=ROLE_ORDER.get):
                 top = [meta_all[h]["name"] for h in sorted((h for h in hs if role_of[h] == role),
@@ -1045,7 +1176,16 @@ def main():
         # reset detection uses the grandmaster count: it is read almost exactly from the ban-rate rounding,
         # while the other ranks are scaled through estimated rank shares and wobble from run to run
         cur_gm = int(N[s]["grandmaster"]["all-maps"])
-        if changed and prev:
+        if no_maps:
+            # China: a new season number is the reset; its nominal match counts say nothing about resets
+            if hist.get("season") and CN["season"] and CN["season"] != hist.get("season") and prev:
+                hist["patchStart"] = now_s
+                hist["lastPatchTotals"] = None
+                hist["patchBase"] = prev
+            if CN["season"] and hist.get("season") != CN["season"]:
+                hist["season"] = CN["season"]
+                hist_dirty = True
+        elif changed and prev:
             prev_gm = prev.get("gm")
             if prev_gm and cur_gm < PATCH_DROP * prev_gm:
                 hist["patchStart"] = now_s          # stats were reset: a new patch began
@@ -1083,9 +1223,10 @@ def main():
                      "sampleRatio": {g: round(totals[g] / last_patch[g], 3) for g in totals if last_patch.get(g)},
                      "pending": [{"id": c["hero"], "name": meta_all[c["hero"]]["name"], "from": ROLE_LABEL[c["from"]],
                                   "to": ROLE_LABEL[c["to"]], "since": c["at"]} for c in pending],
-                     "absent": [meta_all[h]["name"] for h in absent]},
+                     "absent": [meta_all[h]["name"] for h in absent],
+                     **({"noMaps": True, "matchesHidden": True, "season": CN["season"]} if no_maps else {})},
             "roles": roles_out_of(hs), "modes": mode_order, "heroes": heroes_out_of(hs),
-            "maps": [{"id": mp["id"], "name": mp["name"], "short": short(mp), "mode": mp["mode"]} for mp in maps],
+            "maps": [] if no_maps else [{"id": mp["id"], "name": mp["name"], "short": short(mp), "mode": mp["mode"]} for mp in maps],
             "brackets": brackets, "compare": compare,
         }
         write_json(os.path.join(args.out, f"{s}.json"), exported)
