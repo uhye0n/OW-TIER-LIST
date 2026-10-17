@@ -443,9 +443,8 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 .mmeta{font-size:11.5px;font-weight:600;background:rgba(9,13,21,.62);padding:2px 8px;color:rgba(255,255,255,.85);white-space:nowrap}
 .mmeta.low{background:rgba(200,50,58,.85);color:#fff}
 .map-btn .n.err{color:var(--t-s);font-weight:700}
-.merr{position:relative;display:block;padding:10px 12px;font-size:13px;font-weight:600;color:rgba(255,255,255,.9);background:rgba(9,13,21,.62)}
-.board-err{padding:18px 20px;border:1px solid var(--line);border-left:4px solid var(--t-s);background:var(--panel);font-size:14.5px}
-.board-err b{display:block;font-size:16px;margin-bottom:4px}
+.merr{display:flex;align-items:center;justify-content:center;min-height:81px;font-size:15px;font-weight:800;letter-spacing:.02em;color:#fff;background:rgba(200,50,58,.72)}
+.board-err{display:flex;align-items:center;justify-content:center;min-height:160px;border:1px solid var(--line);background:var(--panel);font-size:18px;font-weight:800;color:var(--t-s)}
 body.map-err #scatterPanel,body.map-err #tablePanel{display:none}
 .heat td.hc.na{color:var(--faint);background:transparent}
 .lineup{display:grid;grid-template-columns:1fr 2fr 2fr;gap:8px}
@@ -881,7 +880,7 @@ body.map-err #scatterPanel,body.map-err #tablePanel{display:none}
   function renderRail(){
     const item = (id, name, cls) => {
       const n = BK().N[id]; const [rc, rl] = relOf(n);
-      return `<button type="button" class="map-btn ${cls || ''}" id="rb-${id}" data-map="${id}" aria-current="${state.map === id}" title="${hidden() ? '경기 수 비공개' : n ? `추정 ${fmtInt(n)}경기, 표본 신뢰도 ${rl}` : `공식 통계 오류: ${srcName()} 통계가 이 맵을 빈 표로 줍니다.`}"><span class="dot ${rc}" aria-hidden="true"></span><span class="nm">${esc(name)}</span><span class="n${n || hidden() ? '' : ' err'}">${hidden() ? '' : n ? fmtInt(n) : '오류'}</span></button>`;
+      return `<button type="button" class="map-btn ${cls || ''}" id="rb-${id}" data-map="${id}" aria-current="${state.map === id}" title="${hidden() ? '경기 수 비공개' : n ? `추정 ${fmtInt(n)}경기, 표본 신뢰도 ${rl}` : '공식 통계 오류'}"><span class="dot ${rc}" aria-hidden="true"></span><span class="nm">${esc(name)}</span><span class="n${n || hidden() ? '' : ' err'}">${hidden() ? '' : n ? fmtInt(n) : '오류'}</span></button>`;
     };
     let html = item('all-maps', '전체 맵 종합', 'all');
     for (const mode of MODES) {
@@ -1009,8 +1008,8 @@ body.map-err #scatterPanel,body.map-err #tablePanel{display:none}
         const n = B.N[m.id]; const [, rl] = relOf(n);
         html += `<button type="button" class="mcard" data-go="${m.id}" aria-label="${esc(m.name)} 상세 보기. ${n ? '메타 ' + esc(names(m.id)) : '공식 통계 오류'}">
           <span class="bg" aria-hidden="true">${bgImg(m.id)}</span>
-          <span class="mtop"><span class="mname">${esc(m.name)}</span>${n ? `<span class="mmeta${n < 150 ? ' low' : ''}" title="표본 신뢰도 ${rl}">추정 ${fmtInt(n)}경기${n < 150 ? ' · 표본 적음' : ''}</span>` : `<span class="mmeta low">공식 통계 오류</span>`}</span>
-          ${n ? lineup(m.id) : `<span class="merr">${esc(errText())}</span>`}
+          <span class="mtop"><span class="mname">${esc(m.name)}</span>${n ? `<span class="mmeta${n < 150 ? ' low' : ''}" title="표본 신뢰도 ${rl}">추정 ${fmtInt(n)}경기${n < 150 ? ' · 표본 적음' : ''}</span>` : ''}</span>
+          ${n ? lineup(m.id) : `<span class="merr">공식 통계 오류</span>`}
         </button>`;
       }
       html += `</div></section>`;
@@ -1080,7 +1079,7 @@ body.map-err #scatterPanel,body.map-err #tablePanel{display:none}
     const err = mapErr(state.map);
     document.body.classList.toggle('map-err', err);
     if (err) {
-      html = `<div class="board-err"><b>공식 통계 오류</b>${esc(errText())} 다른 서버나 다른 맵은 정상으로 볼 수 있어요.</div>`;
+      html = `<div class="board-err">공식 통계 오류</div>`;
       $('insight').textContent = '';
     }
     $('board').innerHTML = html;
