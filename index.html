@@ -443,7 +443,11 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
 .mmeta{font-size:11.5px;font-weight:600;background:rgba(9,13,21,.62);padding:2px 8px;color:rgba(255,255,255,.85);white-space:nowrap}
 .mmeta.low{background:rgba(200,50,58,.85);color:#fff}
 .map-btn .n.err{color:var(--t-s);font-weight:700}
-.mmeta.est{background:rgba(9,13,21,.62);color:rgba(255,255,255,.85);border:1px dashed rgba(255,255,255,.45)}
+.merr{position:relative;display:block;padding:10px 12px;font-size:13px;font-weight:600;color:rgba(255,255,255,.9);background:rgba(9,13,21,.62)}
+.board-err{padding:18px 20px;border:1px solid var(--line);border-left:4px solid var(--t-s);background:var(--panel);font-size:14.5px}
+.board-err b{display:block;font-size:16px;margin-bottom:4px}
+body.map-err #scatterPanel,body.map-err #tablePanel{display:none}
+.heat td.hc.na{color:var(--faint);background:transparent}
 .lineup{display:grid;grid-template-columns:1fr 2fr 2fr;gap:8px}
 .grp{display:flex;flex-direction:column;gap:4px;min-width:0}
 .gl{font-size:10.5px;font-weight:700;letter-spacing:.04em;color:rgba(255,255,255,.7);border-bottom:1px solid rgba(255,255,255,.26);padding-bottom:2px}
@@ -546,13 +550,13 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         <div class="tr-chart" id="trendChart"></div>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="scatterPanel">
         <h3>메타 지도</h3>
         <p class="hint">가로는 픽률(로그 눈금), 세로는 승률, 원 크기는 밴률, 색은 티어입니다. 원을 누르면 해당 영웅이 표와 맵별 티어 비교에서 강조됩니다.</p>
         <div id="scatter"></div>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="tablePanel">
         <h3>세부 수치</h3>
         <p class="hint" id="tableHint"></p>
         <div class="table-wrap"><table class="detail" id="detail"></table></div>
@@ -628,7 +632,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
           <li><b>▲▼</b>: 직전 기록 대비 티어 변동(기본 가중치·보정 기준)</li>
           <li><b>영웅 추이</b>: 하루 한 번 저장한 전체 맵 기록(지수는 기본 가중치·보정, 픽률·승률·밴률은 원본)</li>
           <li><b>패치 감지</b>: 그랜드마스터 경기 수가 직전의 70% 아래로 떨어지면 새 패치로 보고, 7일 동안 지난 패치 마지막 기록과 비교(이틀 안에 경기 수가 회복되면 감지 취소)</li>
-          <li><b>공식 통계 오류</b>: 다른 서버에는 기록이 있는데 이 서버 공식 통계만 빈 표로 주는 맵은 '공식 통계 오류'로 표시하고, 다른 서버의 이 맵 경향을 이 서버 전체 맵 수치에 적용한 추정치로 대신(예: 넥슨 할리우드)</li>
+          <li><b>공식 통계 오류</b>: 다른 서버에는 기록이 있는데 이 서버 공식 통계만 빈 표로 주는 맵은 영웅 없이 '공식 통계 오류'로만 표시하고, 지수 계산에서도 제외(예: 넥슨 할리우드)</li>
           <li><b>새 시즌 초반</b>: 공식 통계가 비어 있거나 경기가 너무 적어 픽률 합이 맞지 않는 서버는 지난 시즌 마지막 수치를 유지하고, 경기가 적은 랭크 하나는 그 회차에서만 제외</li>
           <li><b>역할 변경</b>: 역할이 바뀐 영웅은 새 영웅으로 취급. 이전 역할 기록은 따로 보관하고, 공식 통계가 새 역할 경기를 반영할 때까지(역할별 픽률 합이 다시 100·200%로 맞을 때까지) 표에서 제외</li>
         </ul>
@@ -662,6 +666,9 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   // China publishes shares only: no per-map numbers and no match totals (the exported counts are nominal)
   const hidden = () => !!(D && D.meta && D.meta.matchesHidden);
   const nText = n => hidden() ? '경기 수 비공개' : `추정 ${fmtInt(n)}경기`;
+  // a map the source returned empty while other servers have it: an official-stats error, shown as such
+  const mapErr = (mid, b) => mid !== 'all-maps' && !hidden() && ((b || BK()).N[mid] || 0) === 0;
+  const errText = () => `${srcName()} 공식 통계가 이 맵을 빈 표로 주고 있어 보여줄 수 없습니다.`;
   const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const store = {
@@ -761,7 +768,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       for (const i of idx) {
         const z = comps(vals(cells[m][i], smooth), C);
         arr[i] = ww[0]*z[0] + ww[1]*z[1] + ww[2]*z[2];
-        if (m !== 'all-maps') pool.push(arr[i]);
+        if (m !== 'all-maps' && BK().N[m] > 0) pool.push(arr[i]);
       }
       comp[m] = arr;
     }
@@ -874,7 +881,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
   function renderRail(){
     const item = (id, name, cls) => {
       const n = BK().N[id]; const [rc, rl] = relOf(n);
-      return `<button type="button" class="map-btn ${cls || ''}" id="rb-${id}" data-map="${id}" aria-current="${state.map === id}" title="${hidden() ? '경기 수 비공개' : n ? `추정 ${fmtInt(n)}경기, 표본 신뢰도 ${rl}` : `공식 통계 오류: ${srcName()} 통계가 이 맵을 빈 표로 줍니다. 다른 서버 경향을 적용한 추정치입니다.`}"><span class="dot ${rc}" aria-hidden="true"></span><span class="nm">${esc(name)}</span><span class="n${n || hidden() ? '' : ' err'}">${hidden() ? '' : n ? fmtInt(n) : '오류'}</span></button>`;
+      return `<button type="button" class="map-btn ${cls || ''}" id="rb-${id}" data-map="${id}" aria-current="${state.map === id}" title="${hidden() ? '경기 수 비공개' : n ? `추정 ${fmtInt(n)}경기, 표본 신뢰도 ${rl}` : `공식 통계 오류: ${srcName()} 통계가 이 맵을 빈 표로 줍니다.`}"><span class="dot ${rc}" aria-hidden="true"></span><span class="nm">${esc(name)}</span><span class="n${n || hidden() ? '' : ' err'}">${hidden() ? '' : n ? fmtInt(n) : '오류'}</span></button>`;
     };
     let html = item('all-maps', '전체 맵 종합', 'all');
     for (const mode of MODES) {
@@ -1000,10 +1007,10 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
       html += `<section class="mgroup"><h3 class="mode-h">${esc(mode)}<span>${ms.length}개 맵</span></h3><div class="mlist">`;
       for (const m of ms) {
         const n = B.N[m.id]; const [, rl] = relOf(n);
-        html += `<button type="button" class="mcard" data-go="${m.id}" aria-label="${esc(m.name)} 상세 보기. 메타 ${esc(names(m.id))}">
+        html += `<button type="button" class="mcard" data-go="${m.id}" aria-label="${esc(m.name)} 상세 보기. ${n ? '메타 ' + esc(names(m.id)) : '공식 통계 오류'}">
           <span class="bg" aria-hidden="true">${bgImg(m.id)}</span>
-          <span class="mtop"><span class="mname">${esc(m.name)}</span>${n ? `<span class="mmeta${n < 150 ? ' low' : ''}" title="표본 신뢰도 ${rl}">추정 ${fmtInt(n)}경기${n < 150 ? ' · 표본 적음' : ''}</span>` : `<span class="mmeta est" title="${esc(srcName())} 공식 통계가 이 맵을 빈 표로 주고 있습니다(공식 통계 오류). 다른 서버에서 나타난 이 맵의 경향을 ${esc(D.meta.label)} 전체 맵 수치에 적용한 추정치입니다.">공식 통계 오류 · 추정치</span>`}</span>
-          ${lineup(m.id)}
+          <span class="mtop"><span class="mname">${esc(m.name)}</span>${n ? `<span class="mmeta${n < 150 ? ' low' : ''}" title="표본 신뢰도 ${rl}">추정 ${fmtInt(n)}경기${n < 150 ? ' · 표본 적음' : ''}</span>` : `<span class="mmeta low">공식 통계 오류</span>`}</span>
+          ${n ? lineup(m.id) : `<span class="merr">${esc(errText())}</span>`}
         </button>`;
       }
       html += `</div></section>`;
@@ -1035,7 +1042,7 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     document.body.classList.toggle('no-maps', !MAP_IDS.length);
     $('sample').textContent = `${D.meta.label} ${BK().label}(${BK().ranks}) ${roleLabel}, ` + (n || isAll
       ? nText(n) + (isAll || hidden() ? '' : `, 표본 신뢰도 ${rl}`)
-      : `공식 통계 오류(${srcName()} 통계가 이 맵을 빈 표로 줌)${state.smooth ? ', 다른 서버의 이 맵 경향을 전체 맵 수치에 적용한 추정치' : ', 원본 수치 없음'}`);
+      : '공식 통계 오류');
 
     let ins;
     if (isAll) {
@@ -1069,6 +1076,12 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
         return `<button type="button" class="chip${state.focus === i ? ' on' : ''}${thin ? ' thin' : ''}" data-hero="${i}" aria-pressed="${state.focus === i}"${thin ? ` title="표본 적음(약 ${fmtInt(g)}판)"` : ''}>${portrait(i, 'pt')}<span class="nm">${esc(H[i].name)}</span><span class="sc">${Math.round(mi[i])}</span>${mark}</button>`;
       }).join('') : `<span class="none">해당 영웅 없음</span>`;
       html += `<div class="tier-row t-${t}"><div class="tier-label" aria-label="${t} 티어">${t}</div><div class="tier-chips">${chips}</div></div>`;
+    }
+    const err = mapErr(state.map);
+    document.body.classList.toggle('map-err', err);
+    if (err) {
+      html = `<div class="board-err"><b>공식 통계 오류</b>${esc(errText())} 다른 서버나 다른 맵은 정상으로 볼 수 있어요.</div>`;
+      $('insight').textContent = '';
     }
     $('board').innerHTML = html;
   }
@@ -1309,7 +1322,8 @@ button.linklike{border:0;background:none;padding:0;text-decoration:underline;cur
     h += '</tr></thead><tbody>';
     for (const i of order) {
       h += `<tr class="${state.focus === i ? 'focus' : ''}"><th class="hn" scope="row" data-hero="${i}" style="cursor:pointer"><span class="who">${portrait(i, 'pt sm')}${esc(H[i].name)}</span></th>`;
-      const cell = (mid) => { const v = MI[mid][i]; const t = tierOf(v); const nm = mid === 'all-maps' ? '전체 맵' : MAP_BY_ID[mid].name;
+      const cell = (mid) => { if (mapErr(mid)) return `<td class="hc na" data-map="${mid}" title="${esc(MAP_BY_ID[mid].name)}: 공식 통계 오류">—</td>`;
+        const v = MI[mid][i]; const t = tierOf(v); const nm = mid === 'all-maps' ? '전체 맵' : MAP_BY_ID[mid].name;
         return `<td class="hc t-${t}${state.map === mid ? ' sel' : ''}" data-map="${mid}" data-hero="${i}" title="${esc(H[i].name)}, ${esc(nm)}: ${t} (${Math.round(v)})">${t}</td>`; };
       h += cell('all-maps') + '<td class="gap"></td>';
       groups.forEach(([mode, ms], gi) => { for (const m of ms) h += cell(m.id); if (gi < groups.length - 1) h += '<td class="gap"></td>'; });

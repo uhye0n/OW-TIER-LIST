@@ -1140,7 +1140,10 @@ def main():
         for gid, glabel, granks, _ in GROUPS:
             NP, KR = MERGED[(s, gid)]
             SM = smooth(s, gid)
-            ms_c = ["all-maps"] if no_maps else map_ids
+            # maps this server's source left empty (an official-stats error, e.g. Nexon's Hollywood) carry no
+            # information of their own: they stay out of the constants and the index pool, and the page hides them
+            mids_ok = [m for m in mids if int(round(NP[m])) > 0]
+            ms_c = ["all-maps"] if no_maps else mids_ok
             C_sm, C_raw = consts_smoothed(SM, hs, ms_c), consts_raw(KR, hs, ms_c)
             cells = {m: [[r1(SM[m][h]["pr"]), r1(SM[m][h]["wr"]), r1(SM[m][h]["br"]),
                           r1(SM[m][h]["raw"]["pr"]), r1(SM[m][h]["raw"]["wr"]), r1(SM[m][h]["raw"]["br"]),
@@ -1151,9 +1154,9 @@ def main():
                 rs = POOL_RATIOS.get(gid) or {}
                 ratio = {role: round(st.median(v), 3) for role, v in rs.items() if v} or None
             else:
-                for role, v in pool_ratio(hero_roles, map_ids, cells, C_sm).items():
+                for role, v in pool_ratio(hero_roles, mids_ok, cells, C_sm).items():
                     POOL_RATIOS.setdefault(gid, {}).setdefault(role, []).append(v)
-            mi0 = mi_cells(hero_roles, mids, cells, C_sm, ratio=ratio)
+            mi0 = mi_cells(hero_roles, mids_ok, cells, C_sm, ratio=ratio)
             mi_now[gid] = mi0
             totals[gid] = int(NP["all-maps"])
             brackets.append({
